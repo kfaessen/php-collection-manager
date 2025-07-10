@@ -1,19 +1,19 @@
 # PHP Collectiebeheer
 
-Dit project wordt gedeployed via het Git control panel van je hostingprovider. Voor elke omgeving (development, test, acceptatie, productie) gebruik je een aparte branch en een aparte directory op de server.
+Dit project wordt gedeployed via GitHub Actions en SSH, met gebruik van environments voor elke omgeving (development, test, acceptatie, productie).
 
 Zie [DEPLOYMENT.md](./DEPLOYMENT.md) voor de volledige handleiding en instructies.
 
 ## Korte samenvatting deployment
 
-- **Branch dev** → deployment naar development directory
-- **Branch tst** → deployment naar test directory
-- **Branch acc** → deployment naar acceptatie directory
-- **Branch main** → deployment naar productie directory
+- **Branch dev** → deployment naar development environment
+- **Branch tst** → deployment naar test environment
+- **Branch acc** → deployment naar acceptatie environment
+- **Branch main** → deployment naar productie environment
 
-Na een push naar een branch wordt de code automatisch uitgerold via het hosting control panel. Per omgeving gebruik je een eigen `.env`-bestand (zie `.env.template`).
+Na een push naar een branch wordt de code automatisch uitgerold via een GitHub Actions workflow. Per omgeving gebruik je een eigen `.env`-bestand op de server (zie `.env.template`).
 
-**Let op:** Er is geen CI/CD pipeline of GitHub Actions workflow meer nodig voor deployment.
+**Let op:** Deployment gebeurt nu veilig via SSH en environments, niet meer via het hosting control panel.
 
 ## 🚀 Functies
 
