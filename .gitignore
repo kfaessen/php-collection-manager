@@ -1,0 +1,80 @@
+# Environment files
+.env
+.env.local
+.env.*.local
+
+# Vendor directory
+/vendor/
+
+# Composer files
+composer.phar
+composer.lock
+
+# Upload directory contents (keep structure)
+/uploads/*
+!/uploads/.gitkeep
+
+# Node modules (if any)
+node_modules/
+
+# Log files
+*.log
+/logs/
+
+# Cache files
+/cache/
+/tmp/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# PHP Storm
+.phpstorm.meta.php
+
+# Backup files
+*.bak
+*.backup
+*.orig
+
+# Test coverage
+coverage/
+.phpunit.cache
+
+# Database dumps
+*.sql
+!/database/schema.sql
+
+# Temporary files
+*.tmp
+
+# Windows image file caches
+Thumbs.db
+ehthumbs.db
+
+# Folder config file
+Desktop.ini
+
+# Recycle Bin used on file shares
+$RECYCLE.BIN/
+
+# VS Code settings
+.vscode/
+
+# PHP CS Fixer
+.php_cs.cache
+
+# PHPUnit
+.phpunit.result.cache 

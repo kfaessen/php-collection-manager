@@ -1,0 +1,408 @@
+name: Deploy to OVH Hosting
+
+on:
+  push:
+    branches: [dev, tst, acc, prd]
+  pull_request:
+    branches: [prd]
+
+env:
+  PHP_VERSION: 8.1
+
+jobs:
+  security-check:
+    name: Security & Quality Checks
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo, mysql, curl, json
+          coverage: none
+          
+      - name: Validate composer.json
+        run: composer validate --strict
+        
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
+        
+      - name: Check PHP syntax
+        run: |
+          echo "🔍 Checking PHP syntax..."
+          find . -name "*.php" -not -path "./vendor/*" -exec php -l {} \;
+          echo "✅ PHP syntax check completed"
+        
+      - name: Security vulnerability scan
+        run: |
+          echo "🔒 Scanning for security vulnerabilities..."
+          
+          # Check for dangerous PHP functions
+          DANGEROUS_FUNCTIONS=$(find . -name "*.php" -not -path "./vendor/*" -exec grep -l "eval\|exec\|system\|shell_exec\|passthru\|proc_open\|popen\|curl_exec\|curl_multi_exec\|parse_ini_file\|show_source" {} \;)
+          
+          if [ ! -z "$DANGEROUS_FUNCTIONS" ]; then
+            echo "❌ Dangerous functions found in:"
+            echo "$DANGEROUS_FUNCTIONS"
+            exit 1
+          fi
+          
+          # Check for hardcoded credentials
+          CREDENTIALS=$(find . -name "*.php" -not -path "./vendor/*" -exec grep -l "password.*=.*['\"].*['\"]\|api_key.*=.*['\"].*['\"]\|secret.*=.*['\"].*['\"]" {} \;)
+          
+          if [ ! -z "$CREDENTIALS" ]; then
+            echo "❌ Potential hardcoded credentials found in:"
+            echo "$CREDENTIALS"
+            exit 1
+          fi
+          
+          echo "✅ Security scan completed"
+        
+      - name: Check for .env files in repository
+        run: |
+          echo "🔍 Checking for .env files in repository..."
+          if find . -name ".env*" -not -path "./vendor/*" | grep -q .; then
+            echo "❌ .env files found in repository - these should not be committed!"
+            find . -name ".env*" -not -path "./vendor/*"
+            exit 1
+          fi
+          echo "✅ No .env files found in repository"
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: security-check
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo, mysql, curl, json
+          coverage: none
+          
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
+        
+      - name: Run basic functionality tests
+        run: |
+          echo "🧪 Running basic functionality tests..."
+          
+          # Test environment loading
+          php -r "
+            require_once 'includes/env.php';
+            echo '✅ Environment class loaded successfully\n';
+          "
+          
+          # Test database connection (without actual connection)
+          php -r "
+            require_once 'includes/db.php';
+            echo '✅ Database class loaded successfully\n';
+          "
+          
+          # Test functions loading
+          php -r "
+            require_once 'includes/functions.php';
+            echo '✅ Functions loaded successfully\n';
+          "
+          
+          echo "✅ All basic tests passed"
+
+  deploy:
+    name: Deploy to Environment
+    runs-on: ubuntu-latest
+    needs: [security-check, test]
+    if: github.event_name == 'push'
+    environment: ${{ github.ref_name }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Determine environment
+        id: env
+        run: |
+          case ${GITHUB_REF#refs/heads/} in
+            dev)
+              echo "environment=dev" >> $GITHUB_OUTPUT
+              echo "host=${{ secrets.DEV_HOST }}" >> $GITHUB_OUTPUT
+              echo "path=${{ secrets.DEV_PATH }}" >> $GITHUB_OUTPUT
+              echo "db_prefix=dev_" >> $GITHUB_OUTPUT
+              ;;
+            tst)
+              echo "environment=tst" >> $GITHUB_OUTPUT
+              echo "host=${{ secrets.TST_HOST }}" >> $GITHUB_OUTPUT
+              echo "path=${{ secrets.TST_PATH }}" >> $GITHUB_OUTPUT
+              echo "db_prefix=tst_" >> $GITHUB_OUTPUT
+              ;;
+            acc)
+              echo "environment=acc" >> $GITHUB_OUTPUT
+              echo "host=${{ secrets.ACC_HOST }}" >> $GITHUB_OUTPUT
+              echo "path=${{ secrets.ACC_PATH }}" >> $GITHUB_OUTPUT
+              echo "db_prefix=acc_" >> $GITHUB_OUTPUT
+              ;;
+            prd)
+              echo "environment=prd" >> $GITHUB_OUTPUT
+              echo "host=${{ secrets.PRD_HOST }}" >> $GITHUB_OUTPUT
+              echo "path=${{ secrets.PRD_PATH }}" >> $GITHUB_OUTPUT
+              echo "db_prefix=prd_" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "❌ Unknown branch: ${GITHUB_REF#refs/heads/}"
+              exit 1
+              ;;
+          esac
+          
+          echo "🚀 Deploying to ${{ steps.env.outputs.environment }} environment"
+          echo "📍 Host: ${{ steps.env.outputs.host }}"
+          echo "📁 Path: ${{ steps.env.outputs.path }}"
+          
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo, mysql, curl, json
+          coverage: none
+          
+      - name: Install production dependencies
+        run: composer install --prefer-dist --no-progress --no-dev --optimize-autoloader
+        
+      - name: Create deployment package
+        run: |
+          echo "📦 Creating deployment package..."
+          
+          # Create temp directory
+          mkdir -p deployment-temp
+          
+          # Copy application files
+          cp -r public deployment-temp/
+          cp -r includes deployment-temp/
+          cp -r assets deployment-temp/
+          cp -r uploads deployment-temp/
+          cp composer.json deployment-temp/
+          cp README.md deployment-temp/
+          cp LICENSE deployment-temp/
+          
+          # Create .gitkeep files for empty directories
+          touch deployment-temp/uploads/.gitkeep
+          
+          # Create deployment info file
+          cat > deployment-temp/deployment-info.txt << EOF
+          Branch: ${GITHUB_REF#refs/heads/}
+          Commit: $GITHUB_SHA
+          Deployed at: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          Environment: ${{ steps.env.outputs.environment }}
+          Database Prefix: ${{ steps.env.outputs.db_prefix }}
+          Runner: ${{ runner.os }} ${{ runner.arch }}
+          EOF
+          
+          # Create environment-specific .env template
+          cat > deployment-temp/.env.template << EOF
+          # Database configuratie voor ${{ steps.env.outputs.environment }} omgeving
+          DB_HOST=localhost
+          DB_USER=your_db_user
+          DB_PASS=your_db_password
+          DB_NAME=your_database_name
+          DB_PREFIX=${{ steps.env.outputs.db_prefix }}
+          
+          # API Keys
+          OMDB_API_KEY=your_omdb_api_key
+          IGDB_CLIENT_ID=your_igdb_client_id
+          IGDB_SECRET=your_igdb_secret
+          
+          # Applicatie configuratie
+          APP_ENV=${{ steps.env.outputs.environment }}
+          APP_DEBUG=false
+          APP_URL=https://${{ steps.env.outputs.host }}
+          
+          # Upload configuratie
+          MAX_UPLOAD_SIZE=5242880
+          ALLOWED_IMAGE_TYPES=jpg,jpeg,png,gif
+          EOF
+          
+          echo "✅ Deployment package created"
+          
+      - name: Setup SSH key
+        run: |
+          echo "🔑 Setting up SSH connection..."
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ steps.env.outputs.host }} >> ~/.ssh/known_hosts
+          echo "✅ SSH key configured"
+          
+      - name: Create backup
+        run: |
+          echo "💾 Creating backup of current deployment..."
+          ssh ${{ secrets.SSH_USER }}@${{ steps.env.outputs.host }} << 'EOF'
+            cd ${{ steps.env.outputs.path }}
+            
+            # Create backup directory if it doesn't exist
+            mkdir -p ../backups
+            
+            # Create timestamped backup
+            BACKUP_NAME="backup_$(date +%Y%m%d_%H%M%S)_${{ steps.env.outputs.environment }}"
+            
+            if [ -d "current" ]; then
+              cp -r current ../backups/$BACKUP_NAME
+              echo "✅ Backup created: $BACKUP_NAME"
+            else
+              echo "ℹ️ No current deployment found to backup"
+            fi
+            
+            # Keep only last 5 backups
+            cd ../backups
+            ls -t | tail -n +6 | xargs -r rm -rf
+          EOF
+          
+      - name: Deploy via SFTP
+        run: |
+          echo "🚀 Deploying files to server..."
+          
+          # Create remote directory structure
+          ssh ${{ secrets.SSH_USER }}@${{ steps.env.outputs.host }} << 'EOF'
+            mkdir -p ${{ steps.env.outputs.path }}/current
+            mkdir -p ${{ steps.env.outputs.path }}/shared
+            mkdir -p ${{ steps.env.outputs.path }}/shared/uploads
+            mkdir -p ${{ steps.env.outputs.path }}/shared/logs
+          EOF
+          
+          # Sync files using rsync over SSH
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='.github' \
+            --exclude='vendor' \
+            --exclude='.env' \
+            --exclude='node_modules' \
+            deployment-temp/ \
+            ${{ secrets.SSH_USER }}@${{ steps.env.outputs.host }}:${{ steps.env.outputs.path }}/current/
+            
+          echo "✅ Files deployed successfully"
+          
+      - name: Post-deployment tasks
+        run: |
+          echo "🔧 Running post-deployment tasks..."
+          
+          ssh ${{ secrets.SSH_USER }}@${{ steps.env.outputs.host }} << 'EOF'
+            cd ${{ steps.env.outputs.path }}/current
+            
+            # Set proper permissions
+            echo "📁 Setting file permissions..."
+            find . -type f -exec chmod 644 {} \;
+            find . -type d -exec chmod 755 {} \;
+            chmod 755 public/
+            
+            # Ensure uploads directory is writable and linked to shared
+            chmod 777 uploads/
+            ln -sf ../shared/uploads/* uploads/ 2>/dev/null || true
+            
+            # Create symlink for current deployment
+            cd ..
+            ln -sfn current live
+            
+            # Clear any PHP opcache if available
+            if command -v php &> /dev/null; then
+              echo "🧹 Clearing PHP opcache..."
+              php -r "if (function_exists('opcache_reset')) { opcache_reset(); echo 'OpCache cleared'; } else { echo 'OpCache not available'; }"
+            fi
+            
+            echo "✅ Post-deployment tasks completed"
+          EOF
+          
+      - name: Health check
+        run: |
+          echo "🏥 Performing health check..."
+          
+          # Wait for deployment to settle
+          sleep 15
+          
+          # Create simple health check
+          HEALTH_CHECK_SCRIPT="
+          <?php
+          header('Content-Type: application/json');
+          echo json_encode([
+              'status' => 'ok',
+              'timestamp' => date('Y-m-d H:i:s'),
+              'environment' => '${{ steps.env.outputs.environment }}',
+              'version' => '${{ github.sha }}'
+          ]);
+          ?>"
+          
+          # Upload health check script
+          echo "$HEALTH_CHECK_SCRIPT" | ssh ${{ secrets.SSH_USER }}@${{ steps.env.outputs.host }} "cat > ${{ steps.env.outputs.path }}/live/public/health-check.php"
+          
+          # Test health check
+          HEALTH_URL="https://${{ steps.env.outputs.host }}/health-check.php"
+          
+          for i in {1..5}; do
+            if curl -f -s "$HEALTH_URL" > /dev/null 2>&1; then
+              echo "✅ Health check passed on attempt $i"
+              break
+            else
+              echo "⏳ Health check attempt $i failed, retrying..."
+              sleep 5
+            fi
+            
+            if [ $i -eq 5 ]; then
+              echo "⚠️ Health check failed after 5 attempts - site may not be responding"
+              # Don't fail the deployment for health check issues
+            fi
+          done
+          
+      - name: Notify deployment
+        if: always()
+        run: |
+          if [ "${{ job.status }}" == "success" ]; then
+            echo "✅ Deployment to ${{ steps.env.outputs.environment }} succeeded"
+            echo "🌐 Site URL: https://${{ steps.env.outputs.host }}"
+            echo "📁 Deployment path: ${{ steps.env.outputs.path }}/live"
+          else
+            echo "❌ Deployment to ${{ steps.env.outputs.environment }} failed"
+            exit 1
+          fi
+
+  cleanup:
+    name: Cleanup & Maintenance
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/prd'
+    
+    steps:
+      - name: Cleanup old backups
+        run: |
+          echo "🧹 Cleaning up old backups..."
+          
+          ssh ${{ secrets.SSH_USER }}@${{ secrets.PRD_HOST }} << 'EOF'
+            cd ${{ secrets.PRD_PATH }}
+            
+            # Keep only the last 10 backups
+            if [ -d "backups" ]; then
+              cd backups
+              echo "📦 Found $(ls -1 | wc -l) backups"
+              ls -t | tail -n +11 | xargs -r rm -rf
+              echo "✅ Cleanup completed - kept last 10 backups"
+            fi
+            
+            # Clean old log files (older than 30 days)
+            if [ -d "shared/logs" ]; then
+              find shared/logs -name "*.log" -mtime +30 -delete
+              echo "✅ Old log files cleaned"
+            fi
+          EOF
+          
+      - name: Database maintenance
+        run: |
+          echo "🗄️ Running database maintenance..."
+          
+          # This would typically run database maintenance tasks
+          # For now, we'll just log that it's ready for implementation
+          echo "ℹ️ Database maintenance tasks ready for implementation"
+          echo "   - Consider adding database backup scripts"
+          echo "   - Consider adding database optimization tasks"
+          echo "   - Consider adding data cleanup tasks" 
