@@ -1,18 +1,16 @@
-name: Deploy via SSH
+name: Multi-stage Deploy
 
 on:
   push:
     branches:
-      - dev
-      - tst
-      - acc
       - main
 
 jobs:
-  deploy:
+  deploy-dev:
+    name: Deploy to Dev
     runs-on: ubuntu-latest
     environment:
-      name: ${{ github.ref_name == 'main' && 'production' || github.ref_name == 'acc' && 'acceptance' || github.ref_name == 'tst' && 'test' || 'development' }}
+      name: development
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,8 +18,65 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
 
-      - name: Deploy via SSH
+      - name: Deploy to Dev
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin ${{ github.ref_name }} && composer install --no-dev --optimize-autoloader" 
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_DEV }}@${{ secrets.SSH_HOST_DEV }} "cd ${{ secrets.DEPLOY_PATH_DEV }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+
+  deploy-tst:
+    name: Deploy to Test
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    environment:
+      name: test
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_TST }}
+
+      - name: Deploy to Test
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_TST }}@${{ secrets.SSH_HOST_TST }} "cd ${{ secrets.DEPLOY_PATH_TST }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+
+  deploy-acc:
+    name: Deploy to Acceptatie
+    runs-on: ubuntu-latest
+    needs: deploy-tst
+    environment:
+      name: acceptance
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_ACC }}
+
+      - name: Deploy to Acceptatie
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_ACC }}@${{ secrets.SSH_HOST_ACC }} "cd ${{ secrets.DEPLOY_PATH_ACC }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+
+  deploy-prd:
+    name: Deploy to Productie
+    runs-on: ubuntu-latest
+    needs: deploy-acc
+    environment:
+      name: production
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up SSH key
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PRD }}
+
+      - name: Deploy to Productie
+        run: |
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_PRD }}@${{ secrets.SSH_HOST_PRD }} "cd ${{ secrets.DEPLOY_PATH_PRD }} && git pull origin main && composer install --no-dev --optimize-autoloader" 
