@@ -1,11 +1,13 @@
 <?php
+namespace CollectionManager;
+
+use CollectionManager\Environment;
+
 /**
  * Database Connection Handler
  * 
  * Beheert database connectie met omgevingsspecifieke prefixes
  */
-
-require_once __DIR__ . '/env.php';
 
 class Database 
 {

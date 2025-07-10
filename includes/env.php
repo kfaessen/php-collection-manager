@@ -1,4 +1,6 @@
 <?php
+namespace CollectionManager;
+
 /**
  * Environment Configuration Loader
  * 
@@ -23,7 +25,7 @@ class Environment
         }
         
         if (!file_exists($path)) {
-            throw new Exception("Environment bestand niet gevonden: " . $path);
+            throw new \Exception("Environment bestand niet gevonden: " . $path);
         }
         
         $lines = file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -81,8 +83,4 @@ class Environment
     {
         return self::get('DB_PREFIX', 'dev_');
     }
-}
-
-// Auto-load bij include
-Environment::load();
-?> 
+} 
