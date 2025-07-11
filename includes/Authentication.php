@@ -246,7 +246,8 @@ class Authentication
     public static function requirePermission($permissionName) 
     {
         if (!self::hasPermission($permissionName)) {
-            Utils::errorResponse('Onvoldoende rechten voor deze actie');
+            header('Location: login.php?error=permission');
+            exit;
         }
     }
     
@@ -256,7 +257,8 @@ class Authentication
     public static function requireLogin() 
     {
         if (!self::isLoggedIn()) {
-            Utils::errorResponse('U moet ingelogd zijn om deze actie uit te voeren');
+            header('Location: login.php?error=login');
+            exit;
         }
     }
     

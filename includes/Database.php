@@ -40,7 +40,7 @@ class Database
         } catch (\PDOException $e) {
             // In development, show error. In production, log it.
             if (Environment::isDevelopment()) {
-                die("Database connection failed: " . $e->getMessage());
+                die("Database connection failed: " . $e->getMessage() . "<br>DSN: $dsn<br>User: $username");
             } else {
                 error_log("Database connection failed: " . $e->getMessage());
                 die("Database connection failed. Please check your configuration.");
