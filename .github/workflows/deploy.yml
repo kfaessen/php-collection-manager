@@ -18,11 +18,11 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_DEV }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Dev
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_DEV }}@${{ secrets.SSH_HOST_DEV }} "cd ${{ secrets.DEPLOY_PATH_DEV }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
   deploy-tst:
     name: Deploy to Test
@@ -37,11 +37,11 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_TST }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Test
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_TST }}@${{ secrets.SSH_HOST_TST }} "cd ${{ secrets.DEPLOY_PATH_TST }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
   deploy-acc:
     name: Deploy to Acceptatie
@@ -56,11 +56,11 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_ACC }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Acceptatie
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_ACC }}@${{ secrets.SSH_HOST_ACC }} "cd ${{ secrets.DEPLOY_PATH_ACC }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
   deploy-prd:
     name: Deploy to Productie
@@ -75,8 +75,8 @@ jobs:
       - name: Set up SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PRD }}
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
       - name: Deploy to Productie
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER_PRD }}@${{ secrets.SSH_HOST_PRD }} "cd ${{ secrets.DEPLOY_PATH_PRD }} && git pull origin main && composer install --no-dev --optimize-autoloader" 
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader" 
