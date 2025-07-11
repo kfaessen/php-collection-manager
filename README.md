@@ -42,31 +42,30 @@ cd php-collection-manager
 
 ### 2. Configureer de omgeving
 
-Kopieer `.env` bestand en pas aan:
-
-```bash
-cp .env .env.local
-```
-
-Vul de volgende variabelen in:
+Maak een `.env` bestand in de project root:
 
 ```env
-# Database configuratie
+# Database Configuration
 DB_HOST=localhost
-DB_USER=your_db_user
-DB_PASS=your_db_password
-DB_NAME=your_db_name
+DB_NAME=collection_manager
+DB_USER=root
+DB_PASS=
 DB_PREFIX=dev_
 
-# API Keys
-OMDB_API_KEY=your_omdb_key
-IGDB_CLIENT_ID=your_igdb_client_id
-IGDB_SECRET=your_igdb_secret
-
-# Applicatie configuratie
+# Application Configuration
 APP_ENV=development
-APP_DEBUG=true
-APP_URL=http://localhost
+UPLOAD_DIR=uploads/
+MAX_FILE_SIZE=5242880
+API_TIMEOUT=30
+ITEMS_PER_PAGE=12
+
+# Voor OVH hosting pas deze waardes aan:
+# DB_HOST=jouw-mysql-host.ovh.net
+# DB_NAME=jouw-database-naam
+# DB_USER=jouw-database-gebruiker
+# DB_PASS=jouw-database-wachtwoord
+# DB_PREFIX=prd_
+# APP_ENV=production
 ```
 
 ### 3. Database setup
