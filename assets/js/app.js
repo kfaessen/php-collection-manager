@@ -563,25 +563,7 @@ document.addEventListener('DOMContentLoaded', initializeSearch);
  */
 function logout() {
     if (confirm('Weet u zeker dat u wilt uitloggen?')) {
-        fetch('index.php', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: 'action=logout'
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Redirect to login page
-                window.location.href = 'login.php';
-            } else {
-                showToast('Fout bij uitloggen', 'error');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showToast('Netwerkfout bij uitloggen', 'error');
-        });
+        // Direct redirect naar logout.php (betrouwbaarder)
+        window.location.href = 'logout.php';
     }
 } 

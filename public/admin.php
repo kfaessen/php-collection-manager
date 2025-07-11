@@ -75,7 +75,7 @@ $users = UserManager::getAllUsers(100, 0);
             </a>
             <div class="d-flex">
                 <a href="index.php" class="btn btn-outline-light me-2"><i class="bi bi-house"></i> Terug</a>
-                <button class="btn btn-outline-light" onclick="logout()"><i class="bi bi-box-arrow-right"></i> Uitloggen</button>
+                <a href="logout.php" class="btn btn-outline-light"><i class="bi bi-box-arrow-right"></i> Uitloggen</a>
             </div>
         </div>
     </nav>

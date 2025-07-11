@@ -117,10 +117,7 @@ function handleAjaxRequest()
                 }
                 break;
                 
-            case 'logout':
-                Authentication::logout();
-                Utils::successResponse(null, 'Succesvol uitgelogd');
-                break;
+
                 
             case 'create_share_link':
                 Authentication::requireLogin();
@@ -249,7 +246,7 @@ function handleAjaxRequest()
                                 </a></li>
                             <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" onclick="logout()">
+                            <li><a class="dropdown-item" href="logout.php">
                                 <i class="bi bi-box-arrow-right"></i> Uitloggen
                             </a></li>
                         </ul>
