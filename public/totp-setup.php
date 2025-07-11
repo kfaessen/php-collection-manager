@@ -68,8 +68,20 @@ $user = Authentication::getCurrentUser();
     <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
 </head>
 <body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="index.php">
+                <i class="bi bi-collection"></i> Collectiebeheer
+            </a>
+            <div class="d-flex">
+                <a href="index.php" class="btn btn-outline-light me-2"><i class="bi bi-arrow-left"></i> Terug naar overzicht</a>
+                <a href="logout.php" class="btn btn-outline-light"><i class="bi bi-box-arrow-right"></i> Uitloggen</a>
+            </div>
+        </div>
+    </nav>
+
     <div class="container mt-4">
-        <a href="index.php" class="btn btn-outline-primary mb-3"><i class="bi bi-arrow-left"></i> Terug naar overzicht</a>
         <h2><i class="bi bi-shield-lock"></i> Twee-factor authenticatie</h2>
         
         <?php if ($feedback): ?>
