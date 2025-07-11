@@ -24,10 +24,20 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
+  approve-test:
+    name: Goedkeuring voor Test deployment
+    runs-on: ubuntu-latest
+    needs: deploy-dev
+    environment:
+      name: test-approval
+    steps:
+      - name: Wacht op goedkeuring
+        run: echo "Deployment naar Test environment is goedgekeurd"
+
   deploy-tst:
     name: Deploy to Test
     runs-on: ubuntu-latest
-    needs: deploy-dev
+    needs: approve-test
     environment:
       name: test
     steps:
@@ -43,10 +53,20 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
+  approve-acceptance:
+    name: Goedkeuring voor Acceptatie deployment
+    runs-on: ubuntu-latest
+    needs: deploy-tst
+    environment:
+      name: acceptance-approval
+    steps:
+      - name: Wacht op goedkeuring
+        run: echo "Deployment naar Acceptatie environment is goedgekeurd"
+
   deploy-acc:
     name: Deploy to Acceptatie
     runs-on: ubuntu-latest
-    needs: deploy-tst
+    needs: approve-acceptance
     environment:
       name: acceptance
     steps:
@@ -62,10 +82,20 @@ jobs:
         run: |
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
 
+  approve-production:
+    name: Goedkeuring voor Productie deployment
+    runs-on: ubuntu-latest
+    needs: deploy-acc
+    environment:
+      name: production-approval
+    steps:
+      - name: Wacht op goedkeuring
+        run: echo "Deployment naar Productie environment is goedgekeurd"
+
   deploy-prd:
     name: Deploy to Productie
     runs-on: ubuntu-latest
-    needs: deploy-acc
+    needs: approve-production
     environment:
       name: production
     steps:
