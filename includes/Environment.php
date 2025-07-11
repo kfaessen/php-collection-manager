@@ -23,7 +23,17 @@ class Environment
             'ALLOWED_EXTENSIONS' => ['jpg', 'jpeg', 'png', 'gif'],
             'API_TIMEOUT' => 30,
             'ITEMS_PER_PAGE' => 12,
-            'APP_ENV' => 'production'
+            'APP_ENV' => 'production',
+            'SMTP_HOST' => '',
+            'SMTP_PORT' => 587,
+            'SMTP_USER' => '',
+            'SMTP_PASS' => '',
+            'SMTP_SECURE' => 'tls',
+            'SMTP_FROM' => '',
+            'SMTP_FROM_NAME' => 'Collectiebeheer',
+            'TOTP_ISSUER' => 'Collectiebeheer',
+            'TOTP_WINDOW' => 1,
+            'TOTP_BACKUP_CODES_COUNT' => 10
         ];
         
         // Load .env file if exists

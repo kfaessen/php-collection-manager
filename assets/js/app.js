@@ -26,8 +26,11 @@ function initializeApp() {
     // Check for WebRTC support
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         console.warn('WebRTC wordt niet ondersteund in deze browser');
-        document.getElementById('start-scan').textContent = 'Camera niet beschikbaar';
-        document.getElementById('start-scan').disabled = true;
+        const startScanBtn = document.getElementById('start-scan');
+        if (startScanBtn) {
+            startScanBtn.textContent = 'Camera niet beschikbaar';
+            startScanBtn.disabled = true;
+        }
     }
 }
 
@@ -553,4 +556,32 @@ function initializeSearch() {
 }
 
 // Call initialize search when DOM is loaded
-document.addEventListener('DOMContentLoaded', initializeSearch); 
+document.addEventListener('DOMContentLoaded', initializeSearch);
+
+/**
+ * Logout user
+ */
+function logout() {
+    if (confirm('Weet u zeker dat u wilt uitloggen?')) {
+        fetch('index.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'action=logout'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Redirect to login page
+                window.location.href = 'login.php';
+            } else {
+                showToast('Fout bij uitloggen', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showToast('Netwerkfout bij uitloggen', 'error');
+        });
+    }
+} 
