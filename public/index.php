@@ -10,9 +10,21 @@ ini_set('display_errors', 1);
 // Include dependencies
 require_once '../includes/functions.php';
 
+// Check if setup is needed
+if (Database::needsSetup()) {
+    header('Location: setup.php');
+    exit;
+}
+
 // Handle AJAX requests
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     handleAjaxRequest();
+    exit;
+}
+
+// Check if user is logged in
+if (!Authentication::isLoggedIn()) {
+    header('Location: login.php');
     exit;
 }
 
@@ -88,6 +100,74 @@ function handleAjaxRequest()
                 }
                 break;
                 
+            case 'login':
+                $username = Utils::sanitize($_POST['username']);
+                $password = $_POST['password'];
+                
+                if (empty($username) || empty($password)) {
+                    Utils::errorResponse('Gebruikersnaam en wachtwoord zijn verplicht');
+                }
+                
+                $result = Authentication::login($username, $password);
+                
+                if ($result['success']) {
+                    Utils::successResponse(['user' => $result['user']], $result['message']);
+                } else {
+                    Utils::errorResponse($result['message']);
+                }
+                break;
+                
+            case 'logout':
+                Authentication::logout();
+                Utils::successResponse(null, 'Succesvol uitgelogd');
+                break;
+                
+            case 'create_share_link':
+                Authentication::requireLogin();
+                $expiresAt = $_POST['expires_at'] ?? '';
+                if (!$expiresAt) Utils::errorResponse('Geen geldigheid opgegeven');
+                $userId = Authentication::getCurrentUserId();
+                $token = CollectionManager::createShareLink($userId, $expiresAt);
+                $email = trim($_POST['email'] ?? '');
+                if ($email) {
+                    $user = UserManager::getUserById($userId);
+                    $shareUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']) . "/share.php?token=$token";
+                    $subject = 'Collectie gedeeld door ' . $user['first_name'] . ' ' . $user['last_name'];
+                    $body = '<p>Beste,</p><p>' . htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) . ' heeft zijn/haar collectie met je gedeeld.</p>';
+                    $body .= '<p>Klik op de volgende link om de collectie te bekijken:<br><a href="' . $shareUrl . '">' . $shareUrl . '</a></p>';
+                    $body .= '<p>Deze link is geldig tot: <strong>' . htmlspecialchars($expiresAt) . '</strong></p>';
+                    $body .= '<p>Met vriendelijke groet,<br>Collectiebeheer</p>';
+                    MailHelper::sendMail($email, $subject, $body);
+                }
+                Utils::successResponse(['token' => $token], 'Deel-link aangemaakt');
+                break;
+            case 'get_share_links':
+                Authentication::requireLogin();
+                $userId = Authentication::getCurrentUserId();
+                $links = CollectionManager::getShareLinks($userId);
+                Utils::successResponse(['links' => $links]);
+                break;
+            case 'revoke_share_link':
+                Authentication::requireLogin();
+                $userId = Authentication::getCurrentUserId();
+                $token = $_POST['token'] ?? '';
+                if (!$token) Utils::errorResponse('Geen token opgegeven');
+                CollectionManager::revokeShareLink($token, $userId);
+                Utils::successResponse(null, 'Deel-link ingetrokken');
+                break;
+            case 'test_mail':
+                $email = trim($_POST['email'] ?? '');
+                if (!$email) Utils::errorResponse('Geen e-mailadres opgegeven');
+                $subject = 'Testmail Collectiebeheer SMTP';
+                $body = '<p>Dit is een testmail vanaf Collectiebeheer. Je SMTP-instellingen werken!</p>';
+                $ok = MailHelper::sendMail($email, $subject, $body);
+                if ($ok) {
+                    Utils::successResponse(null, 'Testmail verzonden!');
+                } else {
+                    Utils::errorResponse('Verzenden testmail is mislukt. Controleer je SMTP-instellingen.');
+                }
+                break;
+                
             default:
                 Utils::errorResponse('Onbekende actie');
         }
@@ -127,10 +207,51 @@ function handleAjaxRequest()
                     <li class="nav-item">
                         <a class="nav-link" href="index.php">Overzicht</a>
                     </li>
+                    <?php if (Authentication::hasPermission('manage_users')): ?>
+                        <li class="nav-item">
+                            <a class="nav-link" href="admin.php">Beheer</a>
+                        </li>
+                    <?php endif; ?>
                 </ul>
-                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                    <i class="bi bi-plus-lg"></i> Item Toevoegen
-                </button>
+                
+                <div class="d-flex align-items-center">
+                    <?php if (Authentication::hasPermission('manage_own_collection')): ?>
+                        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                            <i class="bi bi-plus-lg"></i> Item Toevoegen
+                        </button>
+                    <?php endif; ?>
+                    
+                    <div class="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                            <i class="bi bi-person-circle"></i> 
+                            <?= htmlspecialchars(Authentication::getCurrentUser()['first_name']) ?>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><h6 class="dropdown-header">
+                                <?= htmlspecialchars(Authentication::getCurrentUser()['first_name'] . ' ' . Authentication::getCurrentUser()['last_name']) ?>
+                            </h6></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal">
+                                <i class="bi bi-share"></i> Deel je collectie
+                            </a></li>
+                            <li><a class="dropdown-item" href="profile.php">
+                                <i class="bi bi-person"></i> Profiel
+                            </a></li>
+                            <li><a class="dropdown-item" href="totp-setup.php">
+                                <i class="bi bi-shield-lock"></i> Twee-factor authenticatie
+                            </a></li>
+                            <?php if (Authentication::hasPermission('manage_users')): ?>
+                                <li><a class="dropdown-item" href="admin.php">
+                                    <i class="bi bi-gear"></i> Beheer
+                                </a></li>
+                            <?php endif; ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#" onclick="logout()">
+                                <i class="bi bi-box-arrow-right"></i> Uitloggen
+                            </a></li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>

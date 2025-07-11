@@ -10,6 +10,10 @@ require_once __DIR__ . '/Database.php';
 require_once __DIR__ . '/Utils.php';
 require_once __DIR__ . '/APIManager.php';
 require_once __DIR__ . '/CollectionManager.php';
+require_once __DIR__ . '/Authentication.php';
+require_once __DIR__ . '/UserManager.php';
+require_once __DIR__ . '/MailHelper.php';
+require_once __DIR__ . '/TOTPHelper.php';
 
 // Create aliases for easier usage (zonder namespace)
 use CollectionManager\Environment;
@@ -17,6 +21,10 @@ use CollectionManager\Database;
 use CollectionManager\Utils;
 use CollectionManager\APIManager;
 use CollectionManager\CollectionManager;
+use CollectionManager\Authentication;
+use CollectionManager\UserManager;
+use CollectionManager\MailHelper;
+use CollectionManager\TOTPHelper;
 
 // Class aliases (optioneel - voor backward compatibility)
 class_alias('CollectionManager\Utils', 'Utils');
@@ -24,6 +32,13 @@ class_alias('CollectionManager\APIManager', 'APIManager');
 class_alias('CollectionManager\CollectionManager', 'CollectionManager');
 class_alias('CollectionManager\Database', 'Database');
 class_alias('CollectionManager\Environment', 'Environment');
+class_alias('CollectionManager\Authentication', 'Authentication');
+class_alias('CollectionManager\UserManager', 'UserManager');
+class_alias('CollectionManager\\MailHelper', 'MailHelper');
+class_alias('CollectionManager\TOTPHelper', 'TOTPHelper');
 
 // Initialize database connection
-Database::init(); 
+Database::init();
+
+// Initialize authentication system
+Authentication::init(); 
