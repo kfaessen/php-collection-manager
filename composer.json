@@ -1,0 +1,53 @@
+{
+    "name": "collectie/manager",
+    "description": "PHP Collectiebeheer-app voor Games, Films en Series",
+    "type": "project",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Collectiebeheer Team"
+        }
+    ],
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "require": {
+        "php": ">=7.4.0",
+        "ext-pdo": "*",
+        "ext-json": "*",
+        "ext-curl": "*"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "CollectionManager\\": "includes/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "check-syntax": "find . -name '*.php' -not -path './vendor/*' -exec php -l {} \\;",
+        "deploy": [
+            "echo 'Running deployment checks...'",
+            "@check-syntax"
+        ]
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "sort-packages": true,
+        "allow-plugins": {
+            "composer/package-versions-deprecated": true
+        }
+    },
+    "extra": {
+        "deployment": {
+            "environments": ["dev", "tst", "acc", "prd"],
+            "prefix-mapping": {
+                "dev": "dev_",
+                "tst": "tst_", 
+                "acc": "acc_",
+                "prd": "prd_"
+            }
+        }
+    }
+} 
