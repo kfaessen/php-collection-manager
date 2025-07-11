@@ -129,7 +129,7 @@ function handleAjaxRequest()
                 $userId = Authentication::getCurrentUserId();
                 $token = CollectionManager::createShareLink($userId, $expiresAt);
                 $email = trim($_POST['email'] ?? '');
-                if ($email) {
+                if ($email && MailHelper::isAvailable()) {
                     $user = UserManager::getUserById($userId);
                     $shareUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . dirname($_SERVER['SCRIPT_NAME']) . "/share.php?token=$token";
                     $subject = 'Collectie gedeeld door ' . $user['first_name'] . ' ' . $user['last_name'];
@@ -156,6 +156,9 @@ function handleAjaxRequest()
                 Utils::successResponse(null, 'Deel-link ingetrokken');
                 break;
             case 'test_mail':
+                if (!MailHelper::isAvailable()) {
+                    Utils::errorResponse('E-mail functionaliteit is niet beschikbaar. PHPMailer is niet geïnstalleerd.');
+                }
                 $email = trim($_POST['email'] ?? '');
                 if (!$email) Utils::errorResponse('Geen e-mailadres opgegeven');
                 $subject = 'Testmail Collectiebeheer SMTP';

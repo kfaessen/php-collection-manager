@@ -1,15 +1,19 @@
 <?php
 namespace CollectionManager;
 
-use PHPMailer\PHPMailer\PHPMailer;
-use PHPMailer\PHPMailer\Exception;
-
 class MailHelper
 {
     public static function sendMail($to, $subject, $body, $altBody = '')
     {
-        $mail = new PHPMailer(true);
+        // Check if PHPMailer is available
+        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            error_log('PHPMailer not available - mail functionality disabled');
+            return false;
+        }
+        
         try {
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            
             // SMTP settings
             $mail->isSMTP();
             $mail->Host = Environment::get('SMTP_HOST');
@@ -27,9 +31,17 @@ class MailHelper
             $mail->AltBody = $altBody ?: strip_tags($body);
             $mail->send();
             return true;
-        } catch (Exception $e) {
-            error_log('Mail error: ' . $mail->ErrorInfo);
+        } catch (\Exception $e) {
+            error_log('Mail error: ' . $e->getMessage());
             return false;
         }
+    }
+    
+    /**
+     * Check if mail functionality is available
+     */
+    public static function isAvailable()
+    {
+        return class_exists('PHPMailer\PHPMailer\PHPMailer');
     }
 } 
