@@ -53,13 +53,21 @@ class Utils
      */
     public static function errorResponse($message = 'Error') 
     {
-        header('Content-Type: application/json');
-        header('HTTP/1.1 400 Bad Request');
-        echo json_encode([
-            'success' => false,
-            'message' => $message
-        ]);
-        exit;
+        // Check if this is an AJAX request
+        if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) == 'xmlhttprequest') {
+            header('Content-Type: application/json');
+            header('HTTP/1.1 400 Bad Request');
+            echo json_encode([
+                'success' => false,
+                'message' => $message
+            ]);
+            exit;
+        } else {
+            // For regular page requests, redirect to login with error
+            $_SESSION['error_message'] = $message;
+            header('Location: login.php');
+            exit;
+        }
     }
     
     /**

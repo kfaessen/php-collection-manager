@@ -38,12 +38,12 @@ class Database
             self::createTables();
             
         } catch (\PDOException $e) {
-            // In development, show error. In production, log it.
+            // Always show detailed error in development
             if (Environment::isDevelopment()) {
-                die("Database connection failed: " . $e->getMessage());
+                die("Database connection failed: " . $e->getMessage() . "\n\nPlease run setup_database.php to create the database and tables.");
             } else {
                 error_log("Database connection failed: " . $e->getMessage());
-                die("Database connection failed. Please check your configuration.");
+                die("Database connection failed. Please check your configuration and run setup_database.php if needed.");
             }
         }
     }
@@ -83,28 +83,28 @@ class Database
      */
     private static function createTables() 
     {
-        // Create users table
+        // Create users table first (no dependencies)
         self::createUsersTable();
         
-        // Create groups table
+        // Create groups table (no dependencies)
         self::createGroupsTable();
         
-        // Create permissions table
+        // Create permissions table (no dependencies)
         self::createPermissionsTable();
         
-        // Create user_groups table
+        // Create user_groups table (depends on users and groups)
         self::createUserGroupsTable();
         
-        // Create group_permissions table
+        // Create group_permissions table (depends on groups and permissions)
         self::createGroupPermissionsTable();
         
-        // Create collection_items table (with user_id)
+        // Create collection_items table (depends on users)
         self::createCollectionItemsTable();
         
-        // Create sessions table
+        // Create sessions table (depends on users)
         self::createSessionsTable();
 
-        // Create shared_links table
+        // Create shared_links table (depends on users)
         self::createSharedLinksTable();
     }
     

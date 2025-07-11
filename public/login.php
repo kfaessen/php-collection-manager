@@ -175,6 +175,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
         
+        <?php if (isset($_SESSION['error_message'])): ?>
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($_SESSION['error_message']) ?>
+            </div>
+            <?php unset($_SESSION['error_message']); ?>
+        <?php endif; ?>
+        
         <?php if (isset($_GET['setup']) && $_GET['setup'] === 'complete'): ?>
             <div class="alert alert-success" role="alert">
                 <i class="bi bi-check-circle"></i> Setup voltooid! Welkom bij Collectiebeheer.

@@ -266,7 +266,12 @@ class Authentication
     private static function findUserByUsernameOrEmail($username) 
     {
         $usersTable = Environment::getTableName('users');
-        $sql = "SELECT * FROM `$usersTable` WHERE username = ? OR email = ?";
+        $sql = "SELECT u.*, COALESCE(GROUP_CONCAT(g.name), '') as groups
+                FROM `$usersTable` u
+                LEFT JOIN " . Environment::getTableName('user_groups') . " ug ON u.id = ug.user_id
+                LEFT JOIN " . Environment::getTableName('groups') . " g ON ug.group_id = g.id
+                WHERE u.username = ? OR u.email = ?
+                GROUP BY u.id";
         $stmt = Database::query($sql, [$username, $username]);
         return $stmt->fetch();
     }
@@ -274,7 +279,12 @@ class Authentication
     private static function getUserById($userId) 
     {
         $usersTable = Environment::getTableName('users');
-        $sql = "SELECT * FROM `$usersTable` WHERE id = ?";
+        $sql = "SELECT u.*, COALESCE(GROUP_CONCAT(g.name), '') as groups
+                FROM `$usersTable` u
+                LEFT JOIN " . Environment::getTableName('user_groups') . " ug ON u.id = ug.user_id
+                LEFT JOIN " . Environment::getTableName('groups') . " g ON ug.group_id = g.id
+                WHERE u.id = ?
+                GROUP BY u.id";
         $stmt = Database::query($sql, [$userId]);
         return $stmt->fetch();
     }
