@@ -1,91 +1,119 @@
 <?php
-require_once '../includes/functions.php';
+/**
+ * User Profile Page
+ */
 
-// Check if user is logged in
-if (!Authentication::isLoggedIn()) {
-    header('Location: login.php');
-    exit;
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+try {
+    require_once '../includes/functions.php';
+} catch (Exception $e) {
+    die("Fout bij laden van functies: " . $e->getMessage());
 }
 
-$userId = Authentication::getCurrentUserId();
-$user = UserManager::getUserById($userId);
-
-if (!$user) {
-    http_response_code(404);
-    echo '<h2>Gebruiker niet gevonden.</h2>';
-    exit;
+// Require login with error handling
+try {
+    Authentication::requireLogin();
+} catch (Exception $e) {
+    die("Authenticatie fout: " . $e->getMessage());
 }
 
-$userGroups = UserManager::getUserGroups($userId);
-$userPerms = [];
-foreach ($userGroups as $g) {
-    foreach (UserManager::getGroupPermissions($g['id']) as $p) {
-        $userPerms[$p['name']] = $p['description'];
+$currentUser = Authentication::getCurrentUser();
+if (!$currentUser) {
+    die("Geen gebruiker gevonden");
+}
+
+try {
+    $userGroups = UserManager::getUserGroups($currentUser['id']);
+    $userPerms = [];
+    foreach ($userGroups as $g) {
+        foreach (UserManager::getGroupPermissions($g['id']) as $p) {
+            $userPerms[$p['name']] = $p['description'];
+        }
     }
+    
+    // Haal items van gebruiker op
+    $items = CollectionManager::getItems('', '', 1000, 0, $currentUser['id']);
+} catch (Exception $e) {
+    $userGroups = [];
+    $userPerms = [];
+    $items = [];
+    $feedback = 'Fout bij ophalen gebruikersgegevens: ' . $e->getMessage();
 }
 
-// Haal items van gebruiker op
-$items = CollectionManager::getItems('', '', 1000, 0, $userId);
-
-// Formulierverwerking
-$feedback = '';
+// Handle form submissions
+if (empty($feedback)) {
+    $feedback = '';
+}
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_profile'])) {
-        $fields = [
-            'email' => Utils::sanitize($_POST['email']),
-            'first_name' => Utils::sanitize($_POST['first_name']),
-            'last_name' => Utils::sanitize($_POST['last_name'])
-        ];
-        
-        // Valideer e-mail
-        if (!filter_var($fields['email'], FILTER_VALIDATE_EMAIL)) {
-            $error = 'Ongeldig e-mailadres';
-        } else {
-            $result = UserManager::updateUser($userId, $fields);
-            if ($result['success']) {
-                $feedback = $result['message'];
-                $user = UserManager::getUserById($userId);
+        try {
+            $userData = [
+                'first_name' => Utils::sanitize($_POST['first_name']),
+                'last_name' => Utils::sanitize($_POST['last_name']),
+                'email' => Utils::sanitize($_POST['email'])
+            ];
+            
+            // Valideer e-mail
+            if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
+                $error = 'Ongeldig e-mailadres';
             } else {
-                $error = $result['message'];
+                $result = UserManager::updateUser($currentUser['id'], $userData);
+                if ($result['success']) {
+                    $feedback = 'Profiel succesvol bijgewerkt';
+                    // Refresh user data
+                    $currentUser = Authentication::getCurrentUser();
+                } else {
+                    $error = $result['message'];
+                }
             }
+        } catch (Exception $e) {
+            $error = 'Fout bij bijwerken profiel: ' . $e->getMessage();
         }
     }
     
     if (isset($_POST['change_password'])) {
-        $currentPassword = $_POST['current_password'];
-        $newPassword = $_POST['new_password'];
-        $confirmPassword = $_POST['confirm_password'];
-        
-        // Valideer wachtwoorden
-        if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
-            $error = 'Alle wachtwoordvelden zijn verplicht';
-        } elseif ($newPassword !== $confirmPassword) {
-            $error = 'Nieuwe wachtwoorden komen niet overeen';
-        } else {
-            // Valideer wachtwoord sterkte
-            $passwordValidation = Authentication::validatePassword($newPassword);
-            if (!$passwordValidation['valid']) {
-                $error = $passwordValidation['message'];
+        try {
+            $currentPassword = $_POST['current_password'];
+            $newPassword = $_POST['new_password'];
+            $confirmPassword = $_POST['confirm_password'];
+            
+            // Valideer wachtwoorden
+            if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+                $error = 'Alle wachtwoordvelden zijn verplicht';
+            } elseif ($newPassword !== $confirmPassword) {
+                $error = 'Nieuwe wachtwoorden komen niet overeen';
             } else {
-                // Controleer huidig wachtwoord
-                $loginResult = Authentication::login($user['username'], $currentPassword);
-                if (!$loginResult['success']) {
-                    $error = 'Huidig wachtwoord is incorrect';
+                // Valideer wachtwoord sterkte
+                $passwordValidation = Authentication::validatePassword($newPassword);
+                if (!$passwordValidation['valid']) {
+                    $error = $passwordValidation['message'];
                 } else {
-                    $result = UserManager::changePassword($userId, $newPassword);
-                    if ($result['success']) {
-                        $feedback = $result['message'];
+                    // Controleer huidig wachtwoord
+                    $loginResult = Authentication::login($currentUser['username'], $currentPassword);
+                    if (!$loginResult['success']) {
+                        $error = 'Huidig wachtwoord is incorrect';
                     } else {
-                        $error = $result['message'];
+                        $result = UserManager::changePassword($currentUser['id'], $newPassword);
+                        if ($result['success']) {
+                            $feedback = 'Wachtwoord succesvol gewijzigd';
+                        } else {
+                            $error = $result['message'];
+                        }
                     }
                 }
             }
+        } catch (Exception $e) {
+            $error = 'Fout bij wijzigen wachtwoord: ' . $e->getMessage();
         }
     }
 }
-?><!DOCTYPE html>
+?>
+<!DOCTYPE html>
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
@@ -132,22 +160,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Gebruikersnaam</label>
-                                    <input type="text" class="form-control" value="<?= htmlspecialchars($user['username']) ?>" readonly>
+                                    <input type="text" class="form-control" value="<?= htmlspecialchars($currentUser['username']) ?>" readonly>
                                     <small class="text-muted">Gebruikersnaam kan niet worden gewijzigd</small>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">E-mail</label>
-                                    <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($user['email']) ?>" required>
+                                    <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($currentUser['email']) ?>" required>
                                 </div>
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Voornaam</label>
-                                    <input type="text" class="form-control" name="first_name" value="<?= htmlspecialchars($user['first_name']) ?>" required>
+                                    <input type="text" class="form-control" name="first_name" value="<?= htmlspecialchars($currentUser['first_name']) ?>" required>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label class="form-label">Achternaam</label>
-                                    <input type="text" class="form-control" name="last_name" value="<?= htmlspecialchars($user['last_name']) ?>" required>
+                                    <input type="text" class="form-control" name="last_name" value="<?= htmlspecialchars($currentUser['last_name']) ?>" required>
                                 </div>
                             </div>
                             <button type="submit" name="update_profile" class="btn btn-primary">
@@ -195,14 +223,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
                     <div class="card-body">
                         <p><strong>Account status:</strong> 
-                            <?php if ($user['is_active']): ?>
+                            <?php if (isset($currentUser['is_active']) && $currentUser['is_active']): ?>
                                 <span class="badge bg-success">Actief</span>
                             <?php else: ?>
                                 <span class="badge bg-danger">Inactief</span>
                             <?php endif; ?>
                         </p>
-                        <p><strong>Lid sinds:</strong> <?= Utils::formatDate($user['created_at']) ?></p>
-                        <p><strong>Laatste login:</strong> <?= $user['last_login'] ? Utils::formatDate($user['last_login']) : 'Nog niet ingelogd' ?></p>
+                        <p><strong>Lid sinds:</strong> <?= Utils::formatDate($currentUser['created_at'] ?? '') ?></p>
+                        <p><strong>Laatste login:</strong> <?= $currentUser['last_login'] ? Utils::formatDate($currentUser['last_login']) : 'Nog niet ingelogd' ?></p>
+                        
+                        <?php if (isset($currentUser['totp_enabled']) && $currentUser['totp_enabled']): ?>
+                            <p><strong>Twee-factor authenticatie:</strong> <span class="badge bg-success">Ingeschakeld</span></p>
+                        <?php endif; ?>
                     </div>
                 </div>
                 
@@ -315,5 +347,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../assets/js/app.js"></script>
 </body>
+</html>
 </html>

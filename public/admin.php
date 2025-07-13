@@ -3,52 +3,89 @@
  * Admin Interface - Gebruikers en rechtenbeheer
  */
 
-require_once '../includes/functions.php';
+// Enable error reporting for debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
-// Alleen toegankelijk voor beheerders
-Authentication::requirePermission('manage_users');
+try {
+    require_once '../includes/functions.php';
+} catch (Exception $e) {
+    die("Fout bij laden van functies: " . $e->getMessage());
+}
+
+// Alleen toegankelijk voor beheerders met error handling
+try {
+    Authentication::requirePermission('system_admin');
+} catch (Exception $e) {
+    die("Toegang geweigerd: " . $e->getMessage());
+}
 
 $tab = $_GET['tab'] ?? 'users';
+if (!in_array($tab, ['users', 'groups', 'stats'])) {
+    $tab = 'users';
+}
 
-// Statistieken ophalen
-$userStats = UserManager::getUserStats();
-$allGroups = UserManager::getAllGroups();
-$allPermissions = UserManager::getAllPermissions();
+// Statistieken ophalen met error handling
+try {
+    $userStats = UserManager::getUserStats();
+    $allGroups = UserManager::getAllGroups();
+    $allPermissions = UserManager::getAllPermissions();
+} catch (Exception $e) {
+    $userStats = ['total_users' => 0, 'active_users' => 0, 'new_last_month' => 0];
+    $allGroups = [];
+    $allPermissions = [];
+    $feedback = 'Fout bij ophalen statistieken: ' . $e->getMessage();
+}
 
 // Formulierverwerking voor nieuwe groepen en gebruikers
-$feedback = '';
+if (empty($feedback)) {
+    $feedback = '';
+}
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['create_group'])) {
-        $name = Utils::sanitize($_POST['group_name']);
-        $description = Utils::sanitize($_POST['group_desc']);
-        $result = UserManager::createGroup($name, $description);
-        if ($result['success']) {
-            header('Location: group.php?id=' . $result['group_id']);
-            exit;
-        } else {
-            $feedback = $result['message'];
+        try {
+            $name = Utils::sanitize($_POST['group_name']);
+            $description = Utils::sanitize($_POST['group_desc']);
+            $result = UserManager::createGroup($name, $description);
+            if ($result['success']) {
+                header('Location: group.php?id=' . $result['group_id']);
+                exit;
+            } else {
+                $feedback = $result['message'];
+            }
+        } catch (Exception $e) {
+            $feedback = 'Fout bij aanmaken groep: ' . $e->getMessage();
         }
     }
     if (isset($_POST['create_user'])) {
-        $userData = [
-            'username' => Utils::sanitize($_POST['username']),
-            'email' => Utils::sanitize($_POST['email']),
-            'password' => $_POST['password'],
-            'first_name' => Utils::sanitize($_POST['first_name']),
-            'last_name' => Utils::sanitize($_POST['last_name'])
-        ];
-        $result = Authentication::register($userData);
-        if ($result['success']) {
-            header('Location: user.php?id=' . $result['user_id']);
-            exit;
-        } else {
-            $feedback = $result['message'];
+        try {
+            $userData = [
+                'username' => Utils::sanitize($_POST['username']),
+                'email' => Utils::sanitize($_POST['email']),
+                'password' => $_POST['password'],
+                'first_name' => Utils::sanitize($_POST['first_name']),
+                'last_name' => Utils::sanitize($_POST['last_name'])
+            ];
+            $result = Authentication::register($userData);
+            if ($result['success']) {
+                header('Location: user.php?id=' . $result['user_id']);
+                exit;
+            } else {
+                $feedback = $result['message'];
+            }
+        } catch (Exception $e) {
+            $feedback = 'Fout bij aanmaken gebruiker: ' . $e->getMessage();
         }
     }
 }
 
-// Gebruikers ophalen
-$users = UserManager::getAllUsers(100, 0);
+// Gebruikers ophalen met error handling
+try {
+    $users = UserManager::getAllUsers(100, 0);
+} catch (Exception $e) {
+    $users = [];
+    $feedback = 'Fout bij ophalen gebruikers: ' . $e->getMessage();
+}
 
 ?>
 <!DOCTYPE html>
@@ -120,35 +157,45 @@ $users = UserManager::getAllUsers(100, 0);
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($users as $user): ?>
+                            <?php if (!empty($users)): ?>
+                                <?php foreach ($users as $user): ?>
                                 <tr>
-                                    <td><?= $user['id'] ?></td>
+                                    <td><?= $user['id'] ?? 'N/A' ?></td>
                                     <td>
-                                        <a href="user.php?id=<?= $user['id'] ?>" class="text-decoration-none">
-                                            <?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?>
-                                        </a><br><small class="text-muted">@<?= htmlspecialchars($user['username']) ?></small>
+                                        <a href="user.php?id=<?= $user['id'] ?? '' ?>" class="text-decoration-none">
+                                            <?= htmlspecialchars(($user['first_name'] ?? '') . ' ' . ($user['last_name'] ?? '')) ?>
+                                        </a><br><small class="text-muted">@<?= htmlspecialchars($user['username'] ?? '') ?></small>
                                     </td>
-                                    <td><?= htmlspecialchars($user['email']) ?></td>
+                                    <td><?= htmlspecialchars($user['email'] ?? '') ?></td>
                                     <td>
-                                        <?php foreach (explode(',', $user['groups']) as $group): ?>
-                                            <span class="badge bg-secondary badge-group"><?= htmlspecialchars($group) ?></span>
-                                        <?php endforeach; ?>
+                                        <?php if (!empty($user['groups'])): ?>
+                                            <?php foreach (explode(',', $user['groups']) as $group): ?>
+                                                <span class="badge bg-secondary badge-group"><?= htmlspecialchars($group) ?></span>
+                                            <?php endforeach; ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Geen groepen</span>
+                                        <?php endif; ?>
                                     </td>
-                                    <td><?= $user['collection_count'] ?></td>
+                                    <td><?= $user['collection_count'] ?? 0 ?></td>
                                     <td>
-                                        <?php if ($user['is_active']): ?>
+                                        <?php if (isset($user['is_active']) && $user['is_active']): ?>
                                             <span class="badge bg-success">Actief</span>
                                         <?php else: ?>
                                             <span class="badge bg-danger">Geblokkeerd</span>
                                         <?php endif; ?>
                                     </td>
-                                    <td><?= $user['last_login'] ? date('d-m-Y H:i', strtotime($user['last_login'])) : '-' ?></td>
+                                    <td><?= !empty($user['last_login']) ? date('d-m-Y H:i', strtotime($user['last_login'])) : '-' ?></td>
                                     <td>
-                                        <a href="user.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-outline-primary" title="Bewerken"><i class="bi bi-pencil"></i></a>
+                                        <a href="user.php?id=<?= $user['id'] ?? '' ?>" class="btn btn-sm btn-outline-primary" title="Bewerken"><i class="bi bi-pencil"></i></a>
                                         <a href="#" class="btn btn-sm btn-outline-danger" title="Verwijderen"><i class="bi bi-trash"></i></a>
                                     </td>
                                 </tr>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted">Geen gebruikers gevonden</td>
+                                </tr>
+                            <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
@@ -166,7 +213,8 @@ $users = UserManager::getAllUsers(100, 0);
                     <div class="col-md-6">
                         <h5>Groepen</h5>
                         <ul class="list-group mb-4">
-                            <?php foreach ($allGroups as $group): ?>
+                            <?php if (!empty($allGroups)): ?>
+                                <?php foreach ($allGroups as $group): ?>
                                 <li class="list-group-item d-flex justify-content-between align-items-center">
                                     <div>
                                         <a href="group.php?id=<?= $group['id'] ?>" class="text-decoration-none">
@@ -183,18 +231,25 @@ $users = UserManager::getAllUsers(100, 0);
                                         </a>
                                     </div>
                                 </li>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <li class="list-group-item text-center text-muted">Geen groepen gevonden</li>
+                            <?php endif; ?>
                         </ul>
                     </div>
                     <div class="col-md-6">
                         <h5>Rechten</h5>
                         <ul class="list-group mb-4">
-                            <?php foreach ($allPermissions as $perm): ?>
+                            <?php if (!empty($allPermissions)): ?>
+                                <?php foreach ($allPermissions as $perm): ?>
                                 <li class="list-group-item">
                                     <span><?= htmlspecialchars($perm['name']) ?></span>
                                     <small class="text-muted ms-2">- <?= htmlspecialchars($perm['description']) ?></small>
                                 </li>
-                            <?php endforeach; ?>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <li class="list-group-item text-center text-muted">Geen rechten gevonden</li>
+                            <?php endif; ?>
                         </ul>
                     </div>
                 </div>
@@ -206,7 +261,7 @@ $users = UserManager::getAllUsers(100, 0);
                         <div class="card text-center mb-3">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-people"></i> Gebruikers</h5>
-                                <p class="card-text display-6 mb-0"><?= $userStats['total_users'] ?></p>
+                                <p class="card-text display-6 mb-0"><?= $userStats['total_users'] ?? 0 ?></p>
                                 <small class="text-muted">Totaal</small>
                             </div>
                         </div>
@@ -215,7 +270,7 @@ $users = UserManager::getAllUsers(100, 0);
                         <div class="card text-center mb-3">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-person-check"></i> Actief</h5>
-                                <p class="card-text display-6 mb-0"><?= $userStats['active_users'] ?></p>
+                                <p class="card-text display-6 mb-0"><?= $userStats['active_users'] ?? 0 ?></p>
                                 <small class="text-muted">Actieve gebruikers</small>
                             </div>
                         </div>
@@ -224,7 +279,7 @@ $users = UserManager::getAllUsers(100, 0);
                         <div class="card text-center mb-3">
                             <div class="card-body">
                                 <h5 class="card-title"><i class="bi bi-person-plus"></i> Nieuw</h5>
-                                <p class="card-text display-6 mb-0"><?= $userStats['new_last_month'] ?></p>
+                                <p class="card-text display-6 mb-0"><?= $userStats['new_last_month'] ?? 0 ?></p>
                                 <small class="text-muted">Aangemaakt deze maand</small>
                             </div>
                         </div>
