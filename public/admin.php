@@ -168,8 +168,8 @@ try {
                                     </td>
                                     <td><?= htmlspecialchars($user['email'] ?? '') ?></td>
                                     <td>
-                                        <?php if (!empty($user['groups'])): ?>
-                                            <?php foreach (explode(',', $user['groups']) as $group): ?>
+                                        <?php if (!empty($user['user_groups'])): ?>
+                                            <?php foreach (explode(',', $user['user_groups']) as $group): ?>
                                                 <span class="badge bg-secondary badge-group"><?= htmlspecialchars($group) ?></span>
                                             <?php endforeach; ?>
                                         <?php else: ?>
