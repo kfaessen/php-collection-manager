@@ -118,8 +118,17 @@ class Database
                     self::executeMigration($version, $migration);
                     error_log("Migration v$version executed successfully");
                 } catch (\Exception $e) {
-                    error_log("Migration v$version failed: " . $e->getMessage());
-                    throw new \Exception("Migration v$version failed: " . $e->getMessage());
+                    // Check if this is a non-critical error (like column already exists)
+                    if (strpos($e->getMessage(), 'Duplicate column name') !== false ||
+                        strpos($e->getMessage(), 'Duplicate key name') !== false ||
+                        strpos($e->getMessage(), 'already exists') !== false) {
+                        error_log("Migration v$version warning (non-critical): " . $e->getMessage());
+                        // Continue with next migration
+                        continue;
+                    } else {
+                        error_log("Migration v$version failed: " . $e->getMessage());
+                        throw new \Exception("Migration v$version failed: " . $e->getMessage());
+                    }
                 }
             }
         }
@@ -290,10 +299,17 @@ class Database
      */
     private static function executeMigration($version, $migration) 
     {
-        // Start transaction
-        self::getConnection()->beginTransaction();
+        $connection = self::getConnection();
+        $transactionStarted = false;
+        $migrationExecuted = false;
         
         try {
+            // Check if there's already an active transaction
+            if (!$connection->inTransaction()) {
+                $connection->beginTransaction();
+                $transactionStarted = true;
+            }
+            
             // Execute all SQL statements for this migration
             foreach ($migration['sql'] as $sql) {
                 try {
@@ -302,7 +318,10 @@ class Database
                     // For certain SQL statements that might fail (like ADD COLUMN IF NOT EXISTS),
                     // we log the error but don't fail the entire migration
                     if (strpos($sql, 'ADD COLUMN IF NOT EXISTS') !== false || 
-                        strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false) {
+                        strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false ||
+                        strpos($e->getMessage(), 'Duplicate column name') !== false ||
+                        strpos($e->getMessage(), 'Duplicate key name') !== false ||
+                        strpos($e->getMessage(), 'already exists') !== false) {
                         error_log("Migration v$version warning: " . $e->getMessage() . " (SQL: $sql)");
                         // Continue with the migration
                     } else {
@@ -315,13 +334,18 @@ class Database
             // Record migration as executed
             $sql = "INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)";
             self::query($sql, [$version, $migration['name']]);
+            $migrationExecuted = true;
             
-            // Commit transaction
-            self::getConnection()->commit();
+            // Commit transaction only if we started it
+            if ($transactionStarted) {
+                $connection->commit();
+            }
             
         } catch (\Exception $e) {
-            // Rollback on error
-            self::getConnection()->rollBack();
+            // Rollback only if we started the transaction and migration wasn't recorded
+            if ($transactionStarted && $connection->inTransaction() && !$migrationExecuted) {
+                $connection->rollBack();
+            }
             throw $e;
         }
     }
