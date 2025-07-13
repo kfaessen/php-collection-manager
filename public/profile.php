@@ -27,15 +27,28 @@ if (!$currentUser) {
 
 try {
     $userGroups = UserManager::getUserGroups($currentUser['id']);
+    $userPerms = [];
+    foreach ($userGroups as $g) {
+        foreach (UserManager::getGroupPermissions($g['id']) as $p) {
+            $userPerms[$p['name']] = $p['description'];
+        }
+    }
+    
+    // Haal items van gebruiker op
+    $items = CollectionManager::getItems('', '', 1000, 0, $currentUser['id']);
 } catch (Exception $e) {
     $userGroups = [];
-    $feedback = 'Fout bij ophalen gebruikersgroepen: ' . $e->getMessage();
+    $userPerms = [];
+    $items = [];
+    $feedback = 'Fout bij ophalen gebruikersgegevens: ' . $e->getMessage();
 }
 
 // Handle form submissions
 if (empty($feedback)) {
     $feedback = '';
 }
+$error = '';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['update_profile'])) {
         try {
@@ -45,16 +58,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'email' => Utils::sanitize($_POST['email'])
             ];
             
-            $result = UserManager::updateUser($currentUser['id'], $userData);
-            if ($result['success']) {
-                $feedback = 'Profiel succesvol bijgewerkt';
-                // Refresh user data
-                $currentUser = Authentication::getCurrentUser();
+            // Valideer e-mail
+            if (!filter_var($userData['email'], FILTER_VALIDATE_EMAIL)) {
+                $error = 'Ongeldig e-mailadres';
             } else {
-                $feedback = $result['message'];
+                $result = UserManager::updateUser($currentUser['id'], $userData);
+                if ($result['success']) {
+                    $feedback = 'Profiel succesvol bijgewerkt';
+                    // Refresh user data
+                    $currentUser = Authentication::getCurrentUser();
+                } else {
+                    $error = $result['message'];
+                }
             }
         } catch (Exception $e) {
-            $feedback = 'Fout bij bijwerken profiel: ' . $e->getMessage();
+            $error = 'Fout bij bijwerken profiel: ' . $e->getMessage();
         }
     }
     
@@ -64,21 +82,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $newPassword = $_POST['new_password'];
             $confirmPassword = $_POST['confirm_password'];
             
-            // Verify current password
-            if (!password_verify($currentPassword, $currentUser['password_hash'])) {
-                $feedback = 'Huidig wachtwoord is onjuist';
+            // Valideer wachtwoorden
+            if (empty($currentPassword) || empty($newPassword) || empty($confirmPassword)) {
+                $error = 'Alle wachtwoordvelden zijn verplicht';
             } elseif ($newPassword !== $confirmPassword) {
-                $feedback = 'Nieuwe wachtwoorden komen niet overeen';
+                $error = 'Nieuwe wachtwoorden komen niet overeen';
             } else {
-                $result = UserManager::changePassword($currentUser['id'], $newPassword);
-                if ($result['success']) {
-                    $feedback = 'Wachtwoord succesvol gewijzigd';
+                // Valideer wachtwoord sterkte
+                $passwordValidation = Authentication::validatePassword($newPassword);
+                if (!$passwordValidation['valid']) {
+                    $error = $passwordValidation['message'];
                 } else {
-                    $feedback = $result['message'];
+                    // Controleer huidig wachtwoord
+                    $loginResult = Authentication::login($currentUser['username'], $currentPassword);
+                    if (!$loginResult['success']) {
+                        $error = 'Huidig wachtwoord is incorrect';
+                    } else {
+                        $result = UserManager::changePassword($currentUser['id'], $newPassword);
+                        if ($result['success']) {
+                            $feedback = 'Wachtwoord succesvol gewijzigd';
+                        } else {
+                            $error = $result['message'];
+                        }
+                    }
                 }
             }
         } catch (Exception $e) {
-            $feedback = 'Fout bij wijzigen wachtwoord: ' . $e->getMessage();
+            $error = 'Fout bij wijzigen wachtwoord: ' . $e->getMessage();
         }
     }
 }
@@ -94,108 +124,230 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <link href="../assets/css/style.css" rel="stylesheet">
 </head>
 <body>
+    <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="index.php">
                 <i class="bi bi-collection"></i> Collectiebeheer
             </a>
             <div class="d-flex">
-                <a href="index.php" class="btn btn-outline-light me-2"><i class="bi bi-house"></i> Terug</a>
+                <a href="index.php" class="btn btn-outline-light me-2"><i class="bi bi-arrow-left"></i> Terug naar overzicht</a>
                 <a href="logout.php" class="btn btn-outline-light"><i class="bi bi-box-arrow-right"></i> Uitloggen</a>
             </div>
         </div>
     </nav>
-    
+
     <div class="container mt-4">
         <div class="row">
-            <div class="col-md-8 mx-auto">
-                <div class="card">
+            <div class="col-md-8">
+                <h2><i class="bi bi-person-circle"></i> Mijn Profiel</h2>
+                
+                <?php if ($feedback): ?>
+                    <div class="alert alert-success mt-3"><?= htmlspecialchars($feedback) ?></div>
+                <?php endif; ?>
+                
+                <?php if ($error): ?>
+                    <div class="alert alert-danger mt-3"><?= htmlspecialchars($error) ?></div>
+                <?php endif; ?>
+                
+                <!-- Profielgegevens -->
+                <div class="card mb-4">
                     <div class="card-header">
-                        <h4><i class="bi bi-person-circle"></i> Mijn Profiel</h4>
+                        <h5 class="mb-0"><i class="bi bi-person"></i> Profielgegevens</h5>
                     </div>
                     <div class="card-body">
-                        <?php if ($feedback): ?>
-                            <div class="alert alert-info"><?= htmlspecialchars($feedback) ?></div>
-                        <?php endif; ?>
+                        <form method="POST">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Gebruikersnaam</label>
+                                    <input type="text" class="form-control" value="<?= htmlspecialchars($currentUser['username']) ?>" readonly>
+                                    <small class="text-muted">Gebruikersnaam kan niet worden gewijzigd</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">E-mail</label>
+                                    <input type="email" class="form-control" name="email" value="<?= htmlspecialchars($currentUser['email']) ?>" required>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Voornaam</label>
+                                    <input type="text" class="form-control" name="first_name" value="<?= htmlspecialchars($currentUser['first_name']) ?>" required>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Achternaam</label>
+                                    <input type="text" class="form-control" name="last_name" value="<?= htmlspecialchars($currentUser['last_name']) ?>" required>
+                                </div>
+                            </div>
+                            <button type="submit" name="update_profile" class="btn btn-primary">
+                                <i class="bi bi-check-lg"></i> Profiel bijwerken
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Wachtwoord wijzigen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-lock"></i> Wachtwoord wijzigen</h5>
+                    </div>
+                    <div class="card-body">
+                        <form method="POST">
+                            <div class="mb-3">
+                                <label class="form-label">Huidig wachtwoord</label>
+                                <input type="password" class="form-control" name="current_password" required>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Nieuw wachtwoord</label>
+                                    <input type="password" class="form-control" name="new_password" required>
+                                    <small class="text-muted">Minimaal 8 tekens, hoofdletter, kleine letter, cijfer en speciaal teken</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label class="form-label">Bevestig nieuw wachtwoord</label>
+                                    <input type="password" class="form-control" name="confirm_password" required>
+                                </div>
+                            </div>
+                            <button type="submit" name="change_password" class="btn btn-warning">
+                                <i class="bi bi-key"></i> Wachtwoord wijzigen
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <!-- Account informatie -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Account informatie</h5>
+                    </div>
+                    <div class="card-body">
+                        <p><strong>Account status:</strong> 
+                            <?php if (isset($currentUser['is_active']) && $currentUser['is_active']): ?>
+                                <span class="badge bg-success">Actief</span>
+                            <?php else: ?>
+                                <span class="badge bg-danger">Inactief</span>
+                            <?php endif; ?>
+                        </p>
+                        <p><strong>Lid sinds:</strong> <?= Utils::formatDate($currentUser['created_at'] ?? '') ?></p>
+                        <p><strong>Laatste login:</strong> <?= $currentUser['last_login'] ? Utils::formatDate($currentUser['last_login']) : 'Nog niet ingelogd' ?></p>
                         
-                        <div class="row">
-                            <div class="col-md-6">
-                                <h5>Profiel Informatie</h5>
-                                <form method="POST" action="#">
-                                    <div class="mb-3">
-                                        <label for="username" class="form-label">Gebruikersnaam</label>
-                                        <input type="text" class="form-control" id="username" value="<?= htmlspecialchars($currentUser['username'] ?? '') ?>" readonly>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="first_name" class="form-label">Voornaam</label>
-                                        <input type="text" class="form-control" id="first_name" name="first_name" value="<?= htmlspecialchars($currentUser['first_name'] ?? '') ?>" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="last_name" class="form-label">Achternaam</label>
-                                        <input type="text" class="form-control" id="last_name" name="last_name" value="<?= htmlspecialchars($currentUser['last_name'] ?? '') ?>" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="email" class="form-label">Email</label>
-                                        <input type="email" class="form-control" id="email" name="email" value="<?= htmlspecialchars($currentUser['email'] ?? '') ?>" required>
-                                    </div>
-                                    <button type="submit" name="update_profile" class="btn btn-primary">Profiel Bijwerken</button>
-                                </form>
-                            </div>
-                            
-                            <div class="col-md-6">
-                                <h5>Wachtwoord Wijzigen</h5>
-                                <form method="POST" action="#">
-                                    <div class="mb-3">
-                                        <label for="current_password" class="form-label">Huidig Wachtwoord</label>
-                                        <input type="password" class="form-control" id="current_password" name="current_password" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="new_password" class="form-label">Nieuw Wachtwoord</label>
-                                        <input type="password" class="form-control" id="new_password" name="new_password" required>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="confirm_password" class="form-label">Bevestig Nieuw Wachtwoord</label>
-                                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                                    </div>
-                                    <button type="submit" name="change_password" class="btn btn-warning">Wachtwoord Wijzigen</button>
-                                </form>
-                                
-                                <hr>
-                                
-                                <h5>Account Informatie</h5>
-                                <p><strong>Lid sinds:</strong> <?= Utils::formatDate($currentUser['created_at'] ?? '') ?></p>
-                                <p><strong>Laatste login:</strong> <?= $currentUser['last_login'] ? Utils::formatDate($currentUser['last_login']) : 'Nog niet ingelogd' ?></p>
-                                <p><strong>Status:</strong> 
-                                    <?php if (isset($currentUser['is_active']) && $currentUser['is_active']): ?>
-                                        <span class="badge bg-success">Actief</span>
-                                    <?php else: ?>
-                                        <span class="badge bg-danger">Geblokkeerd</span>
-                                    <?php endif; ?>
-                                </p>
-                                
-                                <?php if (!empty($userGroups)): ?>
-                                    <p><strong>Groepen:</strong></p>
-                                    <div class="mb-2">
-                                        <?php foreach ($userGroups as $group): ?>
-                                            <span class="badge bg-secondary me-1"><?= htmlspecialchars($group['name']) ?></span>
-                                        <?php endforeach; ?>
-                                    </div>
-                                <?php else: ?>
-                                    <p><strong>Groepen:</strong> <span class="text-muted">Geen groepen</span></p>
-                                <?php endif; ?>
-                                
-                                <?php if (isset($currentUser['totp_enabled']) && $currentUser['totp_enabled']): ?>
-                                    <p><strong>Twee-factor authenticatie:</strong> <span class="badge bg-success">Ingeschakeld</span></p>
-                                <?php endif; ?>
-                            </div>
-                        </div>
+                        <?php if (isset($currentUser['totp_enabled']) && $currentUser['totp_enabled']): ?>
+                            <p><strong>Twee-factor authenticatie:</strong> <span class="badge bg-success">Ingeschakeld</span></p>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <!-- Groepen -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> Mijn groepen</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($userGroups)): ?>
+                            <p class="text-muted">Je bent nog niet toegewezen aan groepen.</p>
+                        <?php else: ?>
+                            <ul class="list-group list-group-flush">
+                                <?php foreach ($userGroups as $group): ?>
+                                    <li class="list-group-item">
+                                        <i class="bi bi-person-badge"></i> <?= htmlspecialchars($group['name']) ?>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <!-- Rechten -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-shield-check"></i> Mijn rechten</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php if (empty($userPerms)): ?>
+                            <p class="text-muted">Je hebt nog geen specifieke rechten.</p>
+                        <?php else: ?>
+                            <ul class="list-group list-group-flush">
+                                <?php foreach ($userPerms as $perm => $desc): ?>
+                                    <li class="list-group-item">
+                                        <strong><?= htmlspecialchars($perm) ?></strong>
+                                        <br><small class="text-muted"><?= htmlspecialchars($desc) ?></small>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
+        
+        <!-- Mijn collectie -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <h3><i class="bi bi-collection"></i> Mijn collectie</h3>
+                <p class="text-muted">Je hebt <?= count($items) ?> items in je collectie.</p>
+                
+                <div class="row">
+                    <?php if (empty($items)): ?>
+                        <div class="col-12">
+                            <div class="alert alert-info text-center">
+                                <h4>Nog geen items in je collectie</h4>
+                                <p>Begin met het toevoegen van je eerste item!</p>
+                                <a href="index.php" class="btn btn-primary">
+                                    <i class="bi bi-plus-lg"></i> Item toevoegen
+                                </a>
+                            </div>
+                        </div>
+                    <?php else: ?>
+                        <?php foreach (array_slice($items, 0, 8) as $item): ?>
+                            <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+                                <div class="card h-100 item-card">
+                                    <?php if ($item['cover_image']): ?>
+                                        <img src="<?= htmlspecialchars($item['cover_image']) ?>" class="card-img-top item-cover" alt="Cover">
+                                    <?php else: ?>
+                                        <div class="card-img-top placeholder-cover d-flex align-items-center justify-content-center">
+                                            <i class="bi bi-image fs-1 text-muted"></i>
+                                        </div>
+                                    <?php endif; ?>
+                                    <div class="card-body d-flex flex-column">
+                                        <h6 class="card-title"><?= htmlspecialchars($item['title']) ?></h6>
+                                        <div class="mb-2">
+                                            <span class="badge bg-secondary"><?= ucfirst($item['type']) ?></span>
+                                            <?php if ($item['platform']): ?>
+                                                <span class="badge bg-info"><?= htmlspecialchars($item['platform']) ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <?php if ($item['description']): ?>
+                                            <p class="card-text text-muted small flex-grow-1">
+                                                <?= htmlspecialchars(substr($item['description'], 0, 100)) ?>
+                                                <?= strlen($item['description']) > 100 ? '...' : '' ?>
+                                            </p>
+                                        <?php endif; ?>
+                                        <div class="mt-auto">
+                                            <small class="text-muted">
+                                                Toegevoegd: <?= Utils::formatDate($item['created_at']) ?>
+                                            </small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                        
+                        <?php if (count($items) > 8): ?>
+                            <div class="col-12 text-center">
+                                <a href="index.php" class="btn btn-outline-primary">
+                                    <i class="bi bi-arrow-right"></i> Bekijk alle items
+                                </a>
+                            </div>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
     </div>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="../assets/js/app.js"></script>
 </body>
+</html>
 </html>
