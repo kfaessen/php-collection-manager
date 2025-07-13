@@ -106,6 +106,55 @@ class Database
 
         // Create shared_links table (depends on users)
         self::createSharedLinksTable();
+        
+        // Check and update database structure if needed
+        self::checkAndUpdateDatabase();
+    }
+    
+    /**
+     * Check and update database structure if needed
+     */
+    private static function checkAndUpdateDatabase() 
+    {
+        try {
+            // Check if collection_items table exists with the correct structure
+            $collectionItemsTable = Environment::getTableName('collection_items');
+            $sql = "SHOW TABLES LIKE '$collectionItemsTable'";
+            $stmt = self::query($sql);
+            
+            if ($stmt->rowCount() == 0) {
+                // Table doesn't exist, create it
+                self::createCollectionItemsTable();
+            } else {
+                // Check if the table has the correct columns
+                $sql = "SHOW COLUMNS FROM `$collectionItemsTable` LIKE 'user_id'";
+                $stmt = self::query($sql);
+                
+                if ($stmt->rowCount() == 0) {
+                    // Table exists but doesn't have user_id column, recreate it
+                    echo "Updating collection_items table structure...\n";
+                    self::dropAndRecreateCollectionItemsTable();
+                }
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Database update check failed: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Drop and recreate collection_items table with correct structure
+     */
+    private static function dropAndRecreateCollectionItemsTable() 
+    {
+        $tableName = Environment::getTableName('collection_items');
+        
+        // Drop existing table
+        $sql = "DROP TABLE IF EXISTS `$tableName`";
+        self::query($sql);
+        
+        // Recreate with correct structure
+        self::createCollectionItemsTable();
     }
     
     /**
@@ -248,22 +297,25 @@ class Database
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 user_id INT NOT NULL,
                 title VARCHAR(255) NOT NULL,
-                type ENUM('game', 'film', 'serie') NOT NULL,
-                barcode VARCHAR(13),
-                platform VARCHAR(100),
-                director VARCHAR(255),
-                publisher VARCHAR(255),
                 description TEXT,
-                cover_image VARCHAR(500),
-                metadata JSON,
+                type VARCHAR(50) NOT NULL,
+                platform VARCHAR(100),
+                category VARCHAR(100),
+                condition_rating INT DEFAULT 5,
+                purchase_date DATE NULL,
+                purchase_price DECIMAL(10,2) NULL,
+                current_value DECIMAL(10,2) NULL,
+                location VARCHAR(255),
+                notes TEXT,
+                cover_image VARCHAR(255),
+                barcode VARCHAR(50),
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                 FOREIGN KEY (user_id) REFERENCES " . Environment::getTableName('users') . "(id) ON DELETE CASCADE,
                 INDEX idx_user_id (user_id),
                 INDEX idx_type (type),
-                INDEX idx_barcode (barcode),
-                INDEX idx_created_at (created_at),
-                INDEX idx_user_barcode (user_id, barcode)
+                INDEX idx_category (category),
+                INDEX idx_barcode (barcode)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ";
         
