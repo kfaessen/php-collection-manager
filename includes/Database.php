@@ -123,6 +123,14 @@ class Database
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
                         strpos($e->getMessage(), 'already exists') !== false) {
                         error_log("Migration v$version warning (non-critical): " . $e->getMessage());
+                        // Mark migration as executed even for non-critical errors
+                        try {
+                            $sql = "INSERT IGNORE INTO database_migrations (version, migration_name) VALUES (?, ?)";
+                            self::query($sql, [$version, $migration['name']]);
+                            error_log("Migration v$version marked as executed despite non-critical error");
+                        } catch (\Exception $recordError) {
+                            error_log("Failed to record migration v$version: " . $recordError->getMessage());
+                        }
                         // Continue with next migration
                         continue;
                     } else {
