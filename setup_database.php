@@ -177,6 +177,8 @@ try {
             user_id INT NOT NULL,
             title VARCHAR(255) NOT NULL,
             description TEXT,
+            type VARCHAR(50) NOT NULL,
+            platform VARCHAR(100),
             category VARCHAR(100),
             condition_rating INT DEFAULT 5,
             purchase_date DATE NULL,
@@ -184,12 +186,15 @@ try {
             current_value DECIMAL(10,2) NULL,
             location VARCHAR(255),
             notes TEXT,
-            image_path VARCHAR(255),
+            cover_image VARCHAR(255),
+            barcode VARCHAR(50),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
             INDEX idx_user_id (user_id),
-            INDEX idx_category (category)
+            INDEX idx_type (type),
+            INDEX idx_category (category),
+            INDEX idx_barcode (barcode)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     ";
     $pdo->exec($sql);

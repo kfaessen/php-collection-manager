@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 2; // Huidige database versie
+    private static $currentVersion = 4; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -116,7 +116,7 @@ class Database
             if ($version > $fromVersion && $version <= self::$currentVersion) {
                 try {
                     self::executeMigration($version, $migration);
-                    echo "Migration v$version executed successfully\n";
+                    error_log("Migration v$version executed successfully");
                 } catch (\Exception $e) {
                     error_log("Migration v$version failed: " . $e->getMessage());
                     throw new \Exception("Migration v$version failed: " . $e->getMessage());
@@ -248,6 +248,39 @@ class Database
                         INDEX idx_barcode (barcode)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
                 ]
+            ],
+            3 => [
+                'name' => 'Safely update collection_items table structure',
+                'sql' => [
+                    // Add missing columns safely if they don't exist
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `condition_rating` INT DEFAULT 5",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `purchase_date` DATE NULL",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `purchase_price` DECIMAL(10,2) NULL",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `current_value` DECIMAL(10,2) NULL",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `location` VARCHAR(255)",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `notes` TEXT",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `cover_image` VARCHAR(255)",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `barcode` VARCHAR(50)",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                    
+                    // Add indexes if they don't exist
+                    "CREATE INDEX IF NOT EXISTS `idx_type` ON `collection_items` (`type`)",
+                    "CREATE INDEX IF NOT EXISTS `idx_category` ON `collection_items` (`category`)",
+                    "CREATE INDEX IF NOT EXISTS `idx_barcode` ON `collection_items` (`barcode`)"
+                ]
+            ],
+            4 => [
+                'name' => 'Safely add user_id column to collection_items table',
+                'sql' => [
+                    // Add user_id column with default value
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `user_id` INT NOT NULL DEFAULT 1",
+                    
+                    // Update all existing records to use the default user (admin)
+                    "UPDATE `collection_items` SET user_id = 1 WHERE user_id = 0",
+                    
+                    // Add index if it doesn't exist
+                    "CREATE INDEX IF NOT EXISTS `idx_user_id` ON `collection_items` (`user_id`)"
+                ]
             ]
         ];
     }
@@ -263,7 +296,20 @@ class Database
         try {
             // Execute all SQL statements for this migration
             foreach ($migration['sql'] as $sql) {
-                self::query($sql);
+                try {
+                    self::query($sql);
+                } catch (\Exception $e) {
+                    // For certain SQL statements that might fail (like ADD COLUMN IF NOT EXISTS),
+                    // we log the error but don't fail the entire migration
+                    if (strpos($sql, 'ADD COLUMN IF NOT EXISTS') !== false || 
+                        strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false) {
+                        error_log("Migration v$version warning: " . $e->getMessage() . " (SQL: $sql)");
+                        // Continue with the migration
+                    } else {
+                        // For other errors, re-throw the exception
+                        throw $e;
+                    }
+                }
             }
             
             // Record migration as executed
@@ -505,5 +551,144 @@ class Database
     public static function getInstalledVersion() 
     {
         return self::getCurrentDatabaseVersion();
+    }
+    
+    /**
+     * Safely update table structure without data loss
+     */
+    public static function safelyUpdateTableStructure($tableName, $requiredColumns) 
+    {
+        try {
+            // Get current table structure
+            $sql = "DESCRIBE `$tableName`";
+            $stmt = self::query($sql);
+            $columns = $stmt->fetchAll();
+            $columnNames = array_column($columns, 'Field');
+            
+            // Check for missing columns and add them safely
+            $missingColumns = [];
+            foreach ($requiredColumns as $columnName => $columnDef) {
+                if (!in_array($columnName, $columnNames)) {
+                    $missingColumns[$columnName] = $columnDef;
+                }
+            }
+            
+            if (empty($missingColumns)) {
+                return ['success' => true, 'message' => 'Table structure is up to date'];
+            }
+            
+            // Special handling for user_id column if it's missing
+            if (in_array('user_id', array_keys($missingColumns))) {
+                $result = self::safelyAddUserIdColumn($tableName);
+                if (!$result['success']) {
+                    return $result;
+                }
+                // Remove user_id from missing columns since it's handled separately
+                unset($missingColumns['user_id']);
+            }
+            
+            // Add remaining missing columns safely
+            $addedColumns = [];
+            foreach ($missingColumns as $columnName => $columnDef) {
+                try {
+                    $sql = "ALTER TABLE `$tableName` ADD COLUMN `$columnName` $columnDef";
+                    self::query($sql);
+                    $addedColumns[] = $columnName;
+                } catch (\Exception $e) {
+                    error_log("Could not add column $columnName to table $tableName: " . $e->getMessage());
+                }
+            }
+            
+            // Include user_id in added columns if it was added
+            if (isset($result) && $result['success'] && isset($result['added_columns'])) {
+                $addedColumns = array_merge($result['added_columns'], $addedColumns);
+            }
+            
+            return [
+                'success' => true, 
+                'message' => 'Added columns: ' . implode(', ', $addedColumns),
+                'added_columns' => $addedColumns
+            ];
+            
+        } catch (\Exception $e) {
+            error_log("Error updating table structure for $tableName: " . $e->getMessage());
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
+    }
+    
+    /**
+     * Safely add user_id column to collection_items table without data loss
+     */
+    private static function safelyAddUserIdColumn($tableName) 
+    {
+        try {
+            // Check if table has data
+            $sql = "SELECT COUNT(*) as count FROM `$tableName`";
+            $stmt = self::query($sql);
+            $itemCount = $stmt->fetch()['count'];
+            
+            if ($itemCount > 0) {
+                // Table has data - we need to handle this carefully
+                // First, check if there's a default admin user we can assign items to
+                $usersTable = Environment::getTableName('users');
+                $sql = "SELECT id FROM `$usersTable` WHERE username = 'admin' LIMIT 1";
+                $stmt = self::query($sql);
+                
+                if ($stmt->rowCount() > 0) {
+                    $adminUserId = $stmt->fetch()['id'];
+                    
+                    // Add user_id column with default value
+                    $sql = "ALTER TABLE `$tableName` ADD COLUMN `user_id` INT NOT NULL DEFAULT ?";
+                    self::query($sql, [$adminUserId]);
+                    
+                    // Update all existing records to use the admin user
+                    $sql = "UPDATE `$tableName` SET user_id = ? WHERE user_id = ?";
+                    self::query($sql, [$adminUserId, $adminUserId]);
+                    
+                    return [
+                        'success' => true,
+                        'message' => "Added user_id column and assigned $itemCount items to admin user",
+                        'added_columns' => ['user_id']
+                    ];
+                } else {
+                    // No admin user exists - create one first
+                    $passwordHash = password_hash('admin123', PASSWORD_DEFAULT);
+                    $sql = "INSERT INTO `$usersTable` (username, email, password_hash, first_name, last_name, is_active) VALUES (?, ?, ?, ?, ?, ?)";
+                    self::query($sql, ['admin', 'admin@example.com', $passwordHash, 'Admin', 'User', 1]);
+                    $adminUserId = self::lastInsertId();
+                    
+                    // Add user_id column with default value
+                    $sql = "ALTER TABLE `$tableName` ADD COLUMN `user_id` INT NOT NULL DEFAULT ?";
+                    self::query($sql, [$adminUserId]);
+                    
+                    // Update all existing records to use the admin user
+                    $sql = "UPDATE `$tableName` SET user_id = ? WHERE user_id = ?";
+                    self::query($sql, [$adminUserId, $adminUserId]);
+                    
+                    return [
+                        'success' => true,
+                        'message' => "Added user_id column, created admin user, and assigned $itemCount items",
+                        'added_columns' => ['user_id']
+                    ];
+                }
+            } else {
+                // Table is empty - safe to add column
+                $sql = "ALTER TABLE `$tableName` ADD COLUMN `user_id` INT NOT NULL";
+                self::query($sql);
+                
+                return [
+                    'success' => true,
+                    'message' => 'Added user_id column to empty table',
+                    'added_columns' => ['user_id']
+                ];
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Error adding user_id column to $tableName: " . $e->getMessage());
+            return [
+                'success' => false, 
+                'error' => "Could not add user_id column: " . $e->getMessage()
+            ];
+        }
     }
 } 
