@@ -7,6 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
+    private static $currentVersion = 2; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -34,8 +35,8 @@ class Database
             self::$connection = new \PDO($dsn, $username, $password, $options);
             self::$initialized = true;
             
-            // Create tables if they don't exist
-            self::createTables();
+            // Check and run database migrations
+            self::checkAndRunMigrations();
             
         } catch (\PDOException $e) {
             // Always show detailed error in development
@@ -45,6 +46,237 @@ class Database
                 error_log("Database connection failed: " . $e->getMessage());
                 die("Database connection failed. Please check your configuration and run setup_database.php if needed.");
             }
+        }
+    }
+    
+    /**
+     * Check and run database migrations
+     */
+    private static function checkAndRunMigrations() 
+    {
+        try {
+            // Create migrations table if it doesn't exist
+            self::createMigrationsTable();
+            
+            // Get current database version
+            $currentVersion = self::getCurrentDatabaseVersion();
+            
+            // Run migrations if needed
+            if ($currentVersion < self::$currentVersion) {
+                self::runMigrations($currentVersion);
+            }
+            
+        } catch (\Exception $e) {
+            error_log("Migration error: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Create migrations table
+     */
+    private static function createMigrationsTable() 
+    {
+        $sql = "
+            CREATE TABLE IF NOT EXISTS `database_migrations` (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                version INT NOT NULL,
+                migration_name VARCHAR(255) NOT NULL,
+                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY unique_version (version)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ";
+        
+        self::query($sql);
+    }
+    
+    /**
+     * Get current database version
+     */
+    private static function getCurrentDatabaseVersion() 
+    {
+        try {
+            $sql = "SELECT MAX(version) as current_version FROM database_migrations";
+            $stmt = self::query($sql);
+            $result = $stmt->fetch();
+            return $result['current_version'] ?? 0;
+        } catch (\Exception $e) {
+            return 0;
+        }
+    }
+    
+    /**
+     * Run migrations from current version to target version
+     */
+    private static function runMigrations($fromVersion) 
+    {
+        $migrations = self::getMigrations();
+        
+        foreach ($migrations as $version => $migration) {
+            if ($version > $fromVersion && $version <= self::$currentVersion) {
+                try {
+                    self::executeMigration($version, $migration);
+                    echo "Migration v$version executed successfully\n";
+                } catch (\Exception $e) {
+                    error_log("Migration v$version failed: " . $e->getMessage());
+                    throw new \Exception("Migration v$version failed: " . $e->getMessage());
+                }
+            }
+        }
+    }
+    
+    /**
+     * Get all available migrations
+     */
+    private static function getMigrations() 
+    {
+        return [
+            1 => [
+                'name' => 'Initial database setup',
+                'sql' => [
+                    // Users table
+                    "CREATE TABLE IF NOT EXISTS `users` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        username VARCHAR(50) UNIQUE NOT NULL,
+                        email VARCHAR(255) UNIQUE NOT NULL,
+                        password_hash VARCHAR(255) NOT NULL,
+                        first_name VARCHAR(100) NOT NULL,
+                        last_name VARCHAR(100) NOT NULL,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        last_login TIMESTAMP NULL,
+                        failed_login_attempts INT DEFAULT 0,
+                        locked_until TIMESTAMP NULL,
+                        totp_secret VARCHAR(32) NULL,
+                        totp_enabled BOOLEAN DEFAULT FALSE,
+                        totp_backup_codes TEXT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_username (username),
+                        INDEX idx_email (email),
+                        INDEX idx_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Groups table
+                    "CREATE TABLE IF NOT EXISTS `groups` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(50) UNIQUE NOT NULL,
+                        description TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Permissions table
+                    "CREATE TABLE IF NOT EXISTS `permissions` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(50) UNIQUE NOT NULL,
+                        description TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // User groups table
+                    "CREATE TABLE IF NOT EXISTS `user_groups` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        group_id INT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_user_group (user_id, group_id),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Group permissions table
+                    "CREATE TABLE IF NOT EXISTS `group_permissions` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        group_id INT NOT NULL,
+                        permission_id INT NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_group_permission (group_id, permission_id),
+                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
+                        FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Sessions table
+                    "CREATE TABLE IF NOT EXISTS `sessions` (
+                        id VARCHAR(128) PRIMARY KEY,
+                        user_id INT NULL,
+                        ip_address VARCHAR(45),
+                        user_agent TEXT,
+                        payload TEXT NOT NULL,
+                        last_activity INT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Shared links table
+                    "CREATE TABLE IF NOT EXISTS `shared_links` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        item_id INT NOT NULL,
+                        token VARCHAR(64) UNIQUE NOT NULL,
+                        expires_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_token (token)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+                ]
+            ],
+            2 => [
+                'name' => 'Add collection_items table',
+                'sql' => [
+                    // Collection items table
+                    "CREATE TABLE IF NOT EXISTS `collection_items` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        title VARCHAR(255) NOT NULL,
+                        description TEXT,
+                        type VARCHAR(50) NOT NULL,
+                        platform VARCHAR(100),
+                        category VARCHAR(100),
+                        condition_rating INT DEFAULT 5,
+                        purchase_date DATE NULL,
+                        purchase_price DECIMAL(10,2) NULL,
+                        current_value DECIMAL(10,2) NULL,
+                        location VARCHAR(255),
+                        notes TEXT,
+                        cover_image VARCHAR(255),
+                        barcode VARCHAR(50),
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_type (type),
+                        INDEX idx_category (category),
+                        INDEX idx_barcode (barcode)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+                ]
+            ]
+        ];
+    }
+    
+    /**
+     * Execute a specific migration
+     */
+    private static function executeMigration($version, $migration) 
+    {
+        // Start transaction
+        self::getConnection()->beginTransaction();
+        
+        try {
+            // Execute all SQL statements for this migration
+            foreach ($migration['sql'] as $sql) {
+                self::query($sql);
+            }
+            
+            // Record migration as executed
+            $sql = "INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)";
+            self::query($sql, [$version, $migration['name']]);
+            
+            // Commit transaction
+            self::getConnection()->commit();
+            
+        } catch (\Exception $e) {
+            // Rollback on error
+            self::getConnection()->rollBack();
+            throw $e;
         }
     }
     
@@ -79,286 +311,122 @@ class Database
     }
     
     /**
-     * Create necessary tables
+     * Create necessary tables (legacy method - kept for backward compatibility)
      */
     private static function createTables() 
     {
-        // Create users table first (no dependencies)
-        self::createUsersTable();
-        
-        // Create groups table (no dependencies)
-        self::createGroupsTable();
-        
-        // Create permissions table (no dependencies)
-        self::createPermissionsTable();
-        
-        // Create user_groups table (depends on users and groups)
-        self::createUserGroupsTable();
-        
-        // Create group_permissions table (depends on groups and permissions)
-        self::createGroupPermissionsTable();
-        
-        // Create collection_items table (depends on users)
-        self::createCollectionItemsTable();
-        
-        // Create sessions table (depends on users)
-        self::createSessionsTable();
-
-        // Create shared_links table (depends on users)
-        self::createSharedLinksTable();
+        // This method is now deprecated - migrations handle table creation
+        // But we keep it for backward compatibility
+        self::checkAndRunMigrations();
     }
     
     /**
-     * Create users table
+     * Create users table (legacy method)
      */
     private static function createUsersTable() 
     {
-        $tableName = Environment::getTableName('users');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                username VARCHAR(50) UNIQUE NOT NULL,
-                email VARCHAR(255) UNIQUE NOT NULL,
-                password_hash VARCHAR(255) NOT NULL,
-                first_name VARCHAR(100) NOT NULL,
-                last_name VARCHAR(100) NOT NULL,
-                is_active BOOLEAN DEFAULT TRUE,
-                last_login TIMESTAMP NULL,
-                failed_login_attempts INT DEFAULT 0,
-                locked_until TIMESTAMP NULL,
-                totp_secret VARCHAR(32) NULL,
-                totp_enabled BOOLEAN DEFAULT FALSE,
-                totp_backup_codes TEXT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                INDEX idx_username (username),
-                INDEX idx_email (email),
-                INDEX idx_active (is_active)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
-        
-        // Add TOTP columns to existing table if they don't exist
-        self::addTOTPColumnsIfNotExist($tableName);
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create groups table
+     * Create groups table (legacy method)
      */
     private static function createGroupsTable() 
     {
-        $tableName = Environment::getTableName('groups');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(50) UNIQUE NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
-        
-        // Insert default groups
-        self::insertDefaultGroups();
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create permissions table
+     * Create permissions table (legacy method)
      */
     private static function createPermissionsTable() 
     {
-        $tableName = Environment::getTableName('permissions');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                name VARCHAR(50) UNIQUE NOT NULL,
-                description TEXT,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
-        
-        // Insert default permissions
-        self::insertDefaultPermissions();
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create user_groups table
+     * Create user_groups table (legacy method)
      */
     private static function createUserGroupsTable() 
     {
-        $tableName = Environment::getTableName('user_groups');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                group_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES " . Environment::getTableName('users') . "(id) ON DELETE CASCADE,
-                FOREIGN KEY (group_id) REFERENCES " . Environment::getTableName('groups') . "(id) ON DELETE CASCADE,
-                UNIQUE KEY unique_user_group (user_id, group_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create group_permissions table
+     * Create group_permissions table (legacy method)
      */
     private static function createGroupPermissionsTable() 
     {
-        $tableName = Environment::getTableName('group_permissions');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                group_id INT NOT NULL,
-                permission_id INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (group_id) REFERENCES " . Environment::getTableName('groups') . "(id) ON DELETE CASCADE,
-                FOREIGN KEY (permission_id) REFERENCES " . Environment::getTableName('permissions') . "(id) ON DELETE CASCADE,
-                UNIQUE KEY unique_group_permission (group_id, permission_id)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
-        
-        // Insert default group permissions
-        self::insertDefaultGroupPermissions();
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create collection_items table (with user_id)
+     * Create collection_items table (legacy method)
      */
     private static function createCollectionItemsTable() 
     {
-        $tableName = Environment::getTableName('collection_items');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                title VARCHAR(255) NOT NULL,
-                type ENUM('game', 'film', 'serie') NOT NULL,
-                barcode VARCHAR(13),
-                platform VARCHAR(100),
-                director VARCHAR(255),
-                publisher VARCHAR(255),
-                description TEXT,
-                cover_image VARCHAR(500),
-                metadata JSON,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES " . Environment::getTableName('users') . "(id) ON DELETE CASCADE,
-                INDEX idx_user_id (user_id),
-                INDEX idx_type (type),
-                INDEX idx_barcode (barcode),
-                INDEX idx_created_at (created_at),
-                INDEX idx_user_barcode (user_id, barcode)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Create sessions table
+     * Create sessions table (legacy method)
      */
     private static function createSessionsTable() 
     {
-        $tableName = Environment::getTableName('sessions');
-        
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id VARCHAR(128) PRIMARY KEY,
-                user_id INT,
-                payload TEXT NOT NULL,
-                last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES " . Environment::getTableName('users') . "(id) ON DELETE CASCADE,
-                INDEX idx_user_id (user_id),
-                INDEX idx_last_activity (last_activity)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        
-        self::query($sql);
+        // Deprecated - handled by migrations
     }
-
+    
     /**
-     * Create shared_links table
+     * Create shared_links table (legacy method)
      */
     private static function createSharedLinksTable() 
     {
-        $tableName = Environment::getTableName('shared_links');
-        $sql = "
-            CREATE TABLE IF NOT EXISTS `$tableName` (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                user_id INT NOT NULL,
-                token VARCHAR(64) UNIQUE NOT NULL,
-                expires_at DATETIME NOT NULL,
-                revoked_at DATETIME DEFAULT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES " . Environment::getTableName('users') . "(id) ON DELETE CASCADE,
-                INDEX idx_user_id (user_id),
-                INDEX idx_token (token),
-                INDEX idx_expires_at (expires_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-        ";
-        self::query($sql);
+        // Deprecated - handled by migrations
     }
     
     /**
-     * Insert default groups
+     * Insert default groups (legacy method)
      */
     private static function insertDefaultGroups() 
     {
-        $tableName = Environment::getTableName('groups');
+        $groupsTable = Environment::getTableName('groups');
         
         $groups = [
-            ['admin', 'Administrators - Full system access'],
-            ['user', 'Regular Users - Can manage their own collection'],
-            ['moderator', 'Moderators - Can view all collections and help users']
+            ['name' => 'admin', 'description' => 'Systeembeheerders'],
+            ['name' => 'user', 'description' => 'Gewone gebruikers'],
+            ['name' => 'moderator', 'description' => 'Moderators']
         ];
         
+        $stmt = self::getConnection()->prepare("INSERT IGNORE INTO `$groupsTable` (name, description) VALUES (?, ?)");
         foreach ($groups as $group) {
-            $sql = "INSERT IGNORE INTO `$tableName` (name, description) VALUES (?, ?)";
-            self::query($sql, $group);
+            $stmt->execute([$group['name'], $group['description']]);
         }
     }
     
     /**
-     * Insert default permissions
+     * Insert default permissions (legacy method)
      */
     private static function insertDefaultPermissions() 
     {
-        $tableName = Environment::getTableName('permissions');
+        $permissionsTable = Environment::getTableName('permissions');
         
         $permissions = [
-            ['manage_users', 'Create, edit, and delete users'],
-            ['manage_groups', 'Create, edit, and delete groups'],
-            ['manage_permissions', 'Assign and revoke permissions'],
-            ['view_all_collections', 'View all user collections'],
-            ['manage_own_collection', 'Manage own collection items'],
-            ['manage_all_collections', 'Manage all user collections'],
-            ['system_admin', 'Full system administration access']
+            ['name' => 'system_admin', 'description' => 'Systeembeheerder rechten'],
+            ['name' => 'user_management', 'description' => 'Gebruikersbeheer'],
+            ['name' => 'group_management', 'description' => 'Groepenbeheer'],
+            ['name' => 'collection_view', 'description' => 'Collectie bekijken'],
+            ['name' => 'collection_edit', 'description' => 'Collectie bewerken'],
+            ['name' => 'collection_delete', 'description' => 'Collectie verwijderen']
         ];
         
+        $stmt = self::getConnection()->prepare("INSERT IGNORE INTO `$permissionsTable` (name, description) VALUES (?, ?)");
         foreach ($permissions as $permission) {
-            $sql = "INSERT IGNORE INTO `$tableName` (name, description) VALUES (?, ?)";
-            self::query($sql, $permission);
+            $stmt->execute([$permission['name'], $permission['description']]);
         }
     }
     
     /**
-     * Insert default group permissions
+     * Insert default group permissions (legacy method)
      */
     private static function insertDefaultGroupPermissions() 
     {
@@ -366,57 +434,76 @@ class Database
         $permissionsTable = Environment::getTableName('permissions');
         $groupPermissionsTable = Environment::getTableName('group_permissions');
         
-        // Admin group gets all permissions
-        $sql = "INSERT IGNORE INTO `$groupPermissionsTable` (group_id, permission_id) 
-                SELECT g.id, p.id FROM `$groupsTable` g, `$permissionsTable` p 
-                WHERE g.name = 'admin'";
-        self::query($sql);
+        $groupPermissions = [
+            ['group' => 'admin', 'permission' => 'system_admin'],
+            ['group' => 'admin', 'permission' => 'user_management'],
+            ['group' => 'admin', 'permission' => 'group_management'],
+            ['group' => 'admin', 'permission' => 'collection_view'],
+            ['group' => 'admin', 'permission' => 'collection_edit'],
+            ['group' => 'admin', 'permission' => 'collection_delete'],
+            ['group' => 'moderator', 'permission' => 'user_management'],
+            ['group' => 'moderator', 'permission' => 'collection_view'],
+            ['group' => 'moderator', 'permission' => 'collection_edit'],
+            ['group' => 'user', 'permission' => 'collection_view'],
+            ['group' => 'user', 'permission' => 'collection_edit']
+        ];
         
-        // User group gets basic permissions
-        $sql = "INSERT IGNORE INTO `$groupPermissionsTable` (group_id, permission_id) 
-                SELECT g.id, p.id FROM `$groupsTable` g, `$permissionsTable` p 
-                WHERE g.name = 'user' AND p.name = 'manage_own_collection'";
-        self::query($sql);
+        $stmt = self::getConnection()->prepare("
+            INSERT IGNORE INTO `$groupPermissionsTable` (group_id, permission_id) 
+            SELECT g.id, p.id 
+            FROM `$groupsTable` g, `$permissionsTable` p 
+            WHERE g.name = ? AND p.name = ?
+        ");
         
-        // Moderator group gets view and help permissions
-        $sql = "INSERT IGNORE INTO `$groupPermissionsTable` (group_id, permission_id) 
-                SELECT g.id, p.id FROM `$groupsTable` g, `$permissionsTable` p 
-                WHERE g.name = 'moderator' AND p.name IN ('view_all_collections', 'manage_own_collection')";
-        self::query($sql);
-    }
-    
-    /**
-     * Add TOTP columns to existing users table if they don't exist
-     */
-    private static function addTOTPColumnsIfNotExist($tableName) 
-    {
-        try {
-            // Check if totp_secret column exists
-            $sql = "SHOW COLUMNS FROM `$tableName` LIKE 'totp_secret'";
-            $stmt = self::query($sql);
-            if ($stmt->rowCount() == 0) {
-                // Add TOTP columns
-                $sql = "ALTER TABLE `$tableName` 
-                        ADD COLUMN totp_secret VARCHAR(32) NULL AFTER locked_until,
-                        ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE AFTER totp_secret,
-                        ADD COLUMN totp_backup_codes TEXT NULL AFTER totp_enabled";
-                self::query($sql);
-            }
-        } catch (\Exception $e) {
-            // Column might already exist, ignore error
-            error_log("TOTP column check failed: " . $e->getMessage());
+        foreach ($groupPermissions as $gp) {
+            $stmt->execute([$gp['group'], $gp['permission']]);
         }
     }
     
     /**
-     * Check if setup is needed (no users exist)
+     * Add TOTP columns to existing table if they don't exist (legacy method)
+     */
+    private static function addTOTPColumnsIfNotExist($tableName) 
+    {
+        // Check if TOTP columns exist
+        $sql = "SHOW COLUMNS FROM `$tableName` LIKE 'totp_secret'";
+        $stmt = self::query($sql);
+        
+        if ($stmt->rowCount() == 0) {
+            $sql = "ALTER TABLE `$tableName` 
+                    ADD COLUMN totp_secret VARCHAR(32) NULL,
+                    ADD COLUMN totp_enabled BOOLEAN DEFAULT FALSE,
+                    ADD COLUMN totp_backup_codes TEXT NULL";
+            self::query($sql);
+        }
+    }
+    
+    /**
+     * Check if database needs setup (legacy method)
      */
     public static function needsSetup() 
     {
-        $tableName = Environment::getTableName('users');
-        $sql = "SELECT COUNT(*) as count FROM `$tableName`";
-        $stmt = self::query($sql);
-        $result = $stmt->fetch();
-        return $result['count'] == 0;
+        try {
+            $currentVersion = self::getCurrentDatabaseVersion();
+            return $currentVersion < self::$currentVersion;
+        } catch (\Exception $e) {
+            return true;
+        }
+    }
+    
+    /**
+     * Get current database version (public method)
+     */
+    public static function getCurrentVersion() 
+    {
+        return self::$currentVersion;
+    }
+    
+    /**
+     * Get installed database version (public method)
+     */
+    public static function getInstalledVersion() 
+    {
+        return self::getCurrentDatabaseVersion();
     }
 } 
