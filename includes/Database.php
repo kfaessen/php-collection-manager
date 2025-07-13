@@ -118,25 +118,8 @@ class Database
                     self::executeMigration($version, $migration);
                     error_log("Migration v$version executed successfully");
                 } catch (\Exception $e) {
-                    // Check if this is a non-critical error (like column already exists)
-                    if (strpos($e->getMessage(), 'Duplicate column name') !== false ||
-                        strpos($e->getMessage(), 'Duplicate key name') !== false ||
-                        strpos($e->getMessage(), 'already exists') !== false) {
-                        error_log("Migration v$version warning (non-critical): " . $e->getMessage());
-                        // Mark migration as executed even for non-critical errors
-                        try {
-                            $sql = "INSERT IGNORE INTO database_migrations (version, migration_name) VALUES (?, ?)";
-                            self::query($sql, [$version, $migration['name']]);
-                            error_log("Migration v$version marked as executed despite non-critical error");
-                        } catch (\Exception $recordError) {
-                            error_log("Failed to record migration v$version: " . $recordError->getMessage());
-                        }
-                        // Continue with next migration
-                        continue;
-                    } else {
-                        error_log("Migration v$version failed: " . $e->getMessage());
-                        throw new \Exception("Migration v$version failed: " . $e->getMessage());
-                    }
+                    error_log("Migration v$version failed: " . $e->getMessage());
+                    throw new \Exception("Migration v$version failed: " . $e->getMessage());
                 }
             }
         }
@@ -310,6 +293,7 @@ class Database
         $connection = self::getConnection();
         $transactionStarted = false;
         $migrationExecuted = false;
+        $hasNonCriticalErrors = false;
         
         try {
             // Check if there's already an active transaction
@@ -323,15 +307,15 @@ class Database
                 try {
                     self::query($sql);
                 } catch (\Exception $e) {
-                    // For certain SQL statements that might fail (like ADD COLUMN IF NOT EXISTS),
-                    // we log the error but don't fail the entire migration
+                    // Check if this is a non-critical error (like column already exists)
                     if (strpos($sql, 'ADD COLUMN IF NOT EXISTS') !== false || 
                         strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false ||
                         strpos($e->getMessage(), 'Duplicate column name') !== false ||
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
                         strpos($e->getMessage(), 'already exists') !== false) {
-                        error_log("Migration v$version warning: " . $e->getMessage() . " (SQL: $sql)");
-                        // Continue with the migration
+                        error_log("Migration v$version warning (non-critical): " . $e->getMessage() . " (SQL: $sql)");
+                        $hasNonCriticalErrors = true;
+                        // Continue with the migration - don't fail the entire migration
                     } else {
                         // For other errors, re-throw the exception
                         throw $e;
@@ -339,7 +323,7 @@ class Database
                 }
             }
             
-            // Record migration as executed
+            // Record migration as executed (even if there were non-critical errors)
             $sql = "INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)";
             self::query($sql, [$version, $migration['name']]);
             $migrationExecuted = true;
@@ -347,6 +331,11 @@ class Database
             // Commit transaction only if we started it
             if ($transactionStarted) {
                 $connection->commit();
+            }
+            
+            // Log success message with warning if there were non-critical errors
+            if ($hasNonCriticalErrors) {
+                error_log("Migration v$version completed with non-critical warnings");
             }
             
         } catch (\Exception $e) {
