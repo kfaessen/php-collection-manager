@@ -342,8 +342,8 @@ class Database
             }
             
         } catch (\Exception $e) {
-            // Rollback only if we started the transaction and migration wasn't recorded
-            if ($transactionStarted && $connection->inTransaction() && !$migrationExecuted) {
+            // Rollback if we started the transaction and it's still active
+            if ($transactionStarted && $connection->inTransaction()) {
                 $connection->rollBack();
             }
             throw $e;
