@@ -114,13 +114,8 @@ class Database
         
         foreach ($migrations as $version => $migration) {
             if ($version > $fromVersion && $version <= self::$currentVersion) {
-                try {
-                    self::executeMigration($version, $migration);
-                    error_log("Migration v$version executed successfully");
-                } catch (\Exception $e) {
-                    error_log("Migration v$version failed: " . $e->getMessage());
-                    throw new \Exception("Migration v$version failed: " . $e->getMessage());
-                }
+                self::executeMigration($version, $migration);
+                error_log("Migration v$version executed successfully");
             }
         }
     }
@@ -292,8 +287,6 @@ class Database
     {
         $connection = self::getConnection();
         $transactionStarted = false;
-        $migrationExecuted = false;
-        $hasNonCriticalErrors = false;
         
         try {
             // Check if there's already an active transaction
@@ -314,7 +307,6 @@ class Database
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
                         strpos($e->getMessage(), 'already exists') !== false) {
                         error_log("Migration v$version warning (non-critical): " . $e->getMessage() . " (SQL: $sql)");
-                        $hasNonCriticalErrors = true;
                         // Continue with the migration - don't fail the entire migration
                     } else {
                         // For other errors, re-throw the exception
@@ -323,19 +315,13 @@ class Database
                 }
             }
             
-            // Record migration as executed (even if there were non-critical errors)
+            // Record migration as executed (within the same transaction)
             $sql = "INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)";
             self::query($sql, [$version, $migration['name']]);
-            $migrationExecuted = true;
             
             // Commit transaction only if we started it
             if ($transactionStarted) {
                 $connection->commit();
-            }
-            
-            // Log success message with warning if there were non-critical errors
-            if ($hasNonCriticalErrors) {
-                error_log("Migration v$version completed with non-critical warnings");
             }
             
         } catch (\Exception $e) {
