@@ -1,4 +1,5 @@
 <?php
+namespace CollectionManager;
 
 /**
  * NotificationHelper - Web Push Notifications Management

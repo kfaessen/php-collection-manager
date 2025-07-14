@@ -1,4 +1,5 @@
 <?php
+namespace CollectionManager;
 
 /**
  * EmailVerificationHelper - Email Verification Management
