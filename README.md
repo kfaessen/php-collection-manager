@@ -1,305 +1,132 @@
-# PHP Collectiebeheer
+# 🚀 PHP Collectiebeheer
 
-Dit project wordt gedeployed via GitHub Actions en SSH, met gebruik van environments voor elke omgeving (development, test, acceptatie, productie).
+Een moderne web applicatie voor het beheren van persoonlijke collecties (games, films, boeken, muziek) met automatische metadata enrichment, barcode scanning en multi-user ondersteuning.
 
-Zie [DEPLOYMENT.md](./DEPLOYMENT.md) voor de volledige handleiding en instructies.
+## ✨ Hoofdfuncties
 
-## Korte samenvatting deployment
+- 📱 **Barcode Scanning** - Scan items met telefoon of webcam
+- 🎮 **Multi-type Collecties** - Games, films, series, boeken, muziek
+- 🔍 **Automatische Metadata** - Via IGDB, OMDb, OpenLibrary APIs
+- 🌐 **Meertalig** - Nederlands, Engels, Duits, Frans, Spaans
+- 🔐 **Veilige Authenticatie** - TOTP 2FA, OAuth (Google/Facebook)
+- 📱 **Progressive Web App** - Offline functionaliteit, push notifications
+- 🚀 **Auto-deployment** - GitHub Actions CI/CD pipeline
 
-- **Branch dev** → deployment naar development environment
-- **Branch tst** → deployment naar test environment
-- **Branch acc** → deployment naar acceptatie environment
-- **Branch main** → deployment naar productie environment
+## 🚀 Quick Start
 
-Na een push naar een branch wordt de code automatisch uitgerold via een GitHub Actions workflow. Per omgeving gebruik je een eigen `.env`-bestand op de server (zie `.env.template`).
-
-**Let op:** Deployment gebeurt nu veilig via SSH en environments, niet meer via het hosting control panel.
-
-## 🚀 Functies
-
-- **📱 Barcode Scanning**: Scan barcodes met uw telefoon of webcam
-- **🎮 Multi-type Collecties**: Ondersteuning voor games, films en series  
-- **🔍 Automatische Metadata**: Haalt automatisch informatie op via APIs
-- **📊 Zoeken & Filteren**: Zoek en filter uw collectie
-- **📱 Responsive Design**: Werkt perfect op mobiel en desktop
-- **🚀 Auto-deployment**: Automatische uitrol via GitHub Actions
-
-## 📋 Vereisten
-
-- PHP 7.4 of hoger
-- MySQL 5.7 of hoger
+### Vereisten
+- PHP 8.4+
+- MySQL 8.0+
 - Composer (optioneel)
-- Webserver (Apache/Nginx)
 
-## 🛠️ Installatie
-
-### 1. Clone het project
-
+### Installatie
 ```bash
-git clone https://github.com/jouw-username/php-collection-manager.git
+# 1. Clone repository
+git clone https://github.com/kfaessen/php-collection-manager.git
 cd php-collection-manager
+
+# 2. Configureer environment
+cp env.template .env
+# Bewerk .env met je database gegevens
+
+# 3. Setup database
+php setup_database.php
+
+# 4. Run migraties
+php run_migrations.php
+
+# 5. Start webserver
+php -S localhost:8000 -t public/
 ```
 
-### 2. Configureer de omgeving
+Ga naar `http://localhost:8000` en log in met:
+- **Username**: `admin`
+- **Password**: `admin123`
 
-Maak een `.env` bestand in de project root:
+## 📚 Documentatie
+
+Voor gedetailleerde informatie zie de documentatie in `/docs/`:
+
+- **[Features](docs/FEATURES.md)** - Uitgebreide functionaliteit overzicht
+- **[Deployment](docs/DEPLOYMENT.md)** - Installatie, configuratie en deployment
+- **[API Reference](docs/API.md)** - API endpoints en integratie (TODO)
+- **[Development](docs/DEVELOPMENT.md)** - Development setup en bijdragen (TODO)
+
+## 🛠️ Technische Stack
+
+- **Backend**: PHP 8.4, MySQL 8.0
+- **Frontend**: Bootstrap 5, Vanilla JavaScript
+- **APIs**: IGDB, OMDb, OpenLibrary, TMDb, Spotify
+- **Features**: PWA, Push Notifications, OAuth, i18n, TOTP
+- **Deployment**: GitHub Actions, SSH, Multi-environment
+
+## 🔧 Configuratie
+
+Basis configuratie via `.env`:
 
 ```env
-# Database Configuration
+# Database
 DB_HOST=localhost
 DB_NAME=collection_manager
 DB_USER=root
 DB_PASS=
-DB_PREFIX=dev_
 
-# Application Configuration
+# Application
 APP_ENV=development
-UPLOAD_DIR=uploads/
-MAX_FILE_SIZE=5242880
-API_TIMEOUT=30
-ITEMS_PER_PAGE=12
+APP_DEBUG=true
+APP_URL=http://localhost:8000
 
-# Voor OVH hosting pas deze waardes aan:
-# DB_HOST=jouw-mysql-host.ovh.net
-# DB_NAME=jouw-database-naam
-# DB_USER=jouw-database-gebruiker
-# DB_PASS=jouw-database-wachtwoord
-# DB_PREFIX=prd_
-# APP_ENV=production
+# API Keys (optioneel)
+OMDB_API_KEY=your_key_here
+IGDB_CLIENT_ID=your_client_id
+IGDB_SECRET=your_secret
 ```
 
-### 3. Database setup
-
-De database tabellen worden automatisch aangemaakt bij het eerste gebruik. Zorg ervoor dat de database bestaat en de gebruiker de juiste rechten heeft.
-
-### 4. Permissies instellen
-
-```bash
-chmod 777 uploads/
-```
-
-### 5. Start de applicatie
-
-Ga naar `public/index.php` in uw browser.
-
-## 🔧 API Configuratie
-
-### OMDb API (Films/Series)
-
-1. Krijg een gratis API key op [OMDb API](http://www.omdbapi.com/apikey.aspx)
-2. Vul `OMDB_API_KEY` in uw `.env` bestand in
-
-### IGDB API (Games)
-
-1. Registreer op [Twitch Developers](https://dev.twitch.tv/)
-2. Maak een nieuwe applicatie aan
-3. Vul `IGDB_CLIENT_ID` en `IGDB_SECRET` in uw `.env` bestand in
-
-### UPCitemDB (Fallback)
-
-Deze API werkt zonder registratie, maar heeft rate limits.
-
-## 📱 Barcode Scanning
-
-De app ondersteunt verschillende manieren om barcodes in te voeren:
-
-- **Camera scanning**: Gebruik de ingebouwde camera scanner
-- **Handmatige invoer**: Type de barcode handmatig in
-- **Ondersteunde formaten**: EAN, UPC (8-14 cijfers)
-
-## 🗂️ Project Structuur
-
-```
-php-collection-manager/
-├── public/                 # Frontend toegankelijke bestanden
-│   └── index.php          # Hoofdapplicatie
-├── includes/               # PHP backend bestanden
-│   ├── db.php             # Database connectie
-│   ├── env.php            # Environment configuratie
-│   └── functions.php      # Core functionaliteit
-├── assets/                 # Frontend assets
-│   ├── css/style.css      # Styling
-│   └── js/app.js          # JavaScript functionaliteit
-├── uploads/                # Upload directory voor afbeeldingen
-├── .github/workflows/      # GitHub Actions
-│   └── deploy.yml         # Deployment workflow
-├── .env                   # Environment configuratie
-├── composer.json          # PHP dependencies
-└── README.md             # Documentatie
-```
+Zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) voor volledige configuratie opties.
 
 ## 🚀 Deployment
 
-### GitHub Actions Setup
-
-1. **Secrets configureren** in GitHub repository:
-
-```
-# SSH configuratie
-SSH_PRIVATE_KEY=your_private_key
-SSH_USER=your_ssh_user
-
-# Development omgeving
-DEV_HOST=dev.example.com
-DEV_PATH=/var/www/dev
-
-# Test omgeving  
-TST_HOST=tst.example.com
-TST_PATH=/var/www/tst
-
-# Acceptatie omgeving
-ACC_HOST=acc.example.com
-ACC_PATH=/var/www/acc
-
-# Productie omgeving
-PRD_HOST=www.example.com
-PRD_PATH=/var/www/prd
-```
-
-2. **Branches aanmaken**:
-   - `dev` - Development omgeving
-   - `tst` - Test omgeving  
-   - `acc` - Acceptatie omgeving
-   - `prd` - Productie omgeving
-
-3. **Push naar branch** triggert automatische deployment
-
-### Handmatige Deployment
-
+### Development
 ```bash
-# Sync bestanden naar server
-rsync -avz --exclude='.git' --exclude='.env' . user@server:/var/www/html/
-
-# Zet permissies
-ssh user@server "cd /var/www/html && find . -type f -exec chmod 644 {} \; && find . -type d -exec chmod 755 {} \; && chmod 777 uploads/"
+git push origin main  # Auto-deploy naar development
 ```
 
-## 💾 Database Schema
+### Production
+Volledig geautomatiseerde deployment via GitHub Actions:
+- Multi-environment support (dev/test/acc/prod)
+- Automatische database migraties
+- Zero-downtime deployment
+- Rollback functionaliteit
 
-### Items Tabel (`{prefix}items`)
+Zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) voor setup instructies.
 
-```sql
-CREATE TABLE dev_items (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    title VARCHAR(255) NOT NULL,
-    type ENUM('game', 'film', 'serie') NOT NULL,
-    barcode VARCHAR(20),
-    platform VARCHAR(100),
-    director VARCHAR(100), 
-    publisher VARCHAR(100),
-    description TEXT,
-    cover_image VARCHAR(255),
-    metadata JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-);
-```
-
-### API Cache Tabel (`{prefix}api_cache`)
-
-```sql
-CREATE TABLE dev_api_cache (
-    id INT AUTO_INCREMENT PRIMARY KEY,
-    barcode VARCHAR(20) NOT NULL,
-    api_source VARCHAR(20) NOT NULL,
-    metadata JSON NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    expires_at TIMESTAMP NULL
-);
-```
-
-## 🔒 Beveiliging
-
-- Alle input wordt gevalideerd en ge-escaped
-- SQL injection bescherming via prepared statements  
-- XSS bescherming via htmlspecialchars
-- Environment variabelen worden niet gecommit
-- HTTPS wordt aanbevolen voor productie
-
-## 🐛 Troubleshooting
-
-### Camera werkt niet
-
-- Controleer HTTPS (required voor camera access)
-- Geef browsertoestemming voor camera
-- Test op verschillende browsers
-
-### Database connectie faalt
-
-- Controleer `.env` configuratie
-- Verify database server is running
-- Check gebruikersrechten
-
-### API's werken niet
-
-- Verify API keys in `.env`
-- Check API rate limits
-- Test API endpoints handmatig
-
-### Deployment faalt
-
-- Check GitHub Secrets configuratie
-- Verify SSH toegang tot server
-- Check server permissies
-
-## 🔧 Development
-
-### Local development setup
-
-```bash
-# Start PHP development server
-cd public && php -S localhost:8000
-
-# Of gebruik XAMPP/WAMP/MAMP
-```
-
-### Testing
-
-```bash
-# Check PHP syntax
-composer run-script check-syntax
-
-# Run security checks
-find . -name "*.php" -not -path "./vendor/*" -exec php -l {} \;
-```
-
-## 📝 Changelog
-
-### v1.0.0 (2024-01-XX)
-- ✅ Eerste release
-- ✅ Barcode scanning
-- ✅ Multi-API metadata ophalen
-- ✅ Responsive interface
-- ✅ GitHub Actions deployment
-
-## 🤝 Contributing
+## 🤝 Bijdragen
 
 1. Fork het project
-2. Maak een feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit je changes (`git commit -m 'Add some AmazingFeature'`)
-4. Push naar de branch (`git push origin feature/AmazingFeature`)
+2. Maak een feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit je wijzigingen (`git commit -m 'Add amazing feature'`)
+4. Push naar branch (`git push origin feature/amazing-feature`)
 5. Open een Pull Request
 
 ## 📄 Licentie
 
 Dit project is gelicenseerd onder de MIT License - zie het [LICENSE](LICENSE) bestand voor details.
 
-## 👥 Credits
+## 🆘 Support
 
-- **Bootstrap** - Frontend framework
-- **html5-qrcode** - Barcode scanning
-- **OMDb API** - Film/serie metadata
-- **IGDB API** - Game metadata
-- **UPCitemDB** - Fallback product database
+- **Issues**: [GitHub Issues](https://github.com/kfaessen/php-collection-manager/issues)
+- **Documentatie**: [docs/](docs/)
+- **Email**: [support@collectiebeheer.nl](mailto:support@collectiebeheer.nl)
 
-## 📞 Support
+## 🎯 Roadmap
 
-Voor vragen of problemen:
-
-1. Check de [Issues](https://github.com/jouw-username/php-collection-manager/issues) pagina
-2. Maak een nieuwe issue aan
-3. Geef gedetailleerde informatie over het probleem
+- [ ] Mobile app (React Native)
+- [ ] Advanced analytics dashboard
+- [ ] Import/export functionaliteit
+- [ ] Social sharing features
+- [ ] AI-powered recommendations
+- [ ] Marketplace integratie
 
 ---
 
-⭐ **Star dit project als het je geholpen heeft!**
+**Gemaakt met ❤️ voor verzamelaars**
