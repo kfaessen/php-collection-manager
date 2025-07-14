@@ -529,7 +529,4 @@ class NotificationHelper {
             return 0;
         }
     }
-}
-
-// Initialize on load
-NotificationHelper::init(); 
+} 

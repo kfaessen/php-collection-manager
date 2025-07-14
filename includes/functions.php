@@ -59,3 +59,6 @@ I18nHelper::init();
 
 // Initialize metadata enrichment system
 MetadataEnricher::init(); 
+
+// Initialiseer NotificationHelper na alle class_aliases
+NotificationHelper::init(); 
