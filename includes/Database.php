@@ -693,8 +693,7 @@ class Database
                         strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false ||
                         strpos($e->getMessage(), 'Duplicate column name') !== false ||
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
-                        strpos($e->getMessage(), 'already exists') !== false ||
-                        strpos($e->getMessage(), 'Table') !== false && strpos($e->getMessage(), 'already exists') !== false) {
+                        strpos($e->getMessage(), 'already exists') !== false) {
                         error_log("Migration v$version warning (non-critical): " . $e->getMessage() . " (SQL: $sql)");
                         // Continue with the migration - don't fail the entire migration
                     } else {
