@@ -1,38 +1,25 @@
-# Environment files
-.env
-.env.local
-.env.*.local
-
-# Vendor directory
-/vendor/
-
-# Composer files
-composer.phar
-composer.lock
-
-# Upload directory contents (keep structure)
-/uploads/*
-!/uploads/.gitkeep
-
-# Node modules (if any)
+# Dependency directories
+vendor/
 node_modules/
+bower_components/
 
-# Log files
+# Environment and Configuration Files
+.env
+.env.*
+!.env.template
+
+# Log Files
 *.log
-/logs/
+logs/
+log/
 
-# Cache files
-/cache/
-/tmp/
+# Cache and Temporary Files
+cache/
+tmp/
+temp/
+.cache/
 
-# IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS generated files
+# OS Generated Files
 .DS_Store
 .DS_Store?
 ._*
@@ -41,40 +28,90 @@ node_modules/
 ehthumbs.db
 Thumbs.db
 
-# PHP Storm
-.phpstorm.meta.php
+# IDE and Editor Files
+.vscode/
+.idea/
+.sublime-project
+.sublime-workspace
+*.swp
+*.swo
+*~
 
-# Backup files
-*.bak
+# Build and Deployment Artifacts
+build-info.json
+deployment.checksum
+deployment.log
 *.backup
-*.orig
+backups/
+maintenance.php
 
-# Test coverage
+# Security Files
+.htaccess.backup
+ssh_keys/
+*.pem
+*.key
+!public_key_example
+
+# Upload Directories (keep structure, ignore content)
+uploads/*
+!uploads/.gitkeep
+!uploads/index.php
+
+# Coverage and Test Reports  
 coverage/
-.phpunit.cache
+.phpunit.result.cache
+phpunit.xml
+.coverage
 
-# Database dumps
-*.sql
-!/database/schema.sql
+# Package Files
+*.tar.gz
+*.zip
+*.rar
 
-# Temporary files
-*.tmp
+# Development Files
+.vagrant/
+Vagrantfile.local
+docker-compose.override.yml
+.docker/
 
-# Windows image file caches
+# Windows
 Thumbs.db
 ehthumbs.db
-
-# Folder config file
 Desktop.ini
 
-# Recycle Bin used on file shares
-$RECYCLE.BIN/
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
 
-# VS Code settings
-.vscode/
+# Linux
+*~
 
-# PHP CS Fixer
-.php_cs.cache
+# Editor backups
+*.bak
+*.orig
+*.rej
 
-# PHPUnit
-.phpunit.result.cache 
+# OVH Specific
+.ovh/
+ovh_config/
+
+# Composer
+composer.phar
+composer.lock
+
+# NPM
+package-lock.json
+yarn.lock
+
+# VS Code
+.vs/
+
+# PHPStorm
+.phpstorm.meta.php
+_ide_helper.php
+
+# Deployment specific
+deploy_log_*
+rollback_*
+pre_deploy_* 

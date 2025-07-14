@@ -33,7 +33,55 @@ class Environment
             'SMTP_FROM_NAME' => 'Collectiebeheer',
             'TOTP_ISSUER' => 'Collectiebeheer',
             'TOTP_WINDOW' => 1,
-            'TOTP_BACKUP_CODES_COUNT' => 10
+            'TOTP_BACKUP_CODES_COUNT' => 10,
+            
+            // OAuth Configuration
+            'GOOGLE_CLIENT_ID' => '',
+            'GOOGLE_CLIENT_SECRET' => '',
+            'GOOGLE_REDIRECT_URI' => '',
+            'FACEBOOK_APP_ID' => '',
+            'FACEBOOK_APP_SECRET' => '',
+            'FACEBOOK_REDIRECT_URI' => '',
+            'OAUTH_STATE_LIFETIME' => 600, // 10 minutes
+            'OAUTH_ENABLED' => true,
+            
+            // Internationalization Configuration
+            'DEFAULT_LANGUAGE' => 'nl',
+            'FALLBACK_LANGUAGE' => 'en',
+            'I18N_ENABLED' => true,
+            'AUTO_DETECT_LANGUAGE' => true,
+            'TRANSLATION_CACHE_ENABLED' => true,
+            'TRANSLATION_CACHE_LIFETIME' => 3600, // 1 hour
+            'SUPPORTED_LANGUAGES' => ['nl', 'en'],
+            
+            // API Integration Configuration
+            'API_ENABLED' => true,
+            'API_CACHE_ENABLED' => true,
+            'API_CACHE_LIFETIME' => 86400, // 24 hours
+            'AUTO_COVER_DOWNLOAD' => true,
+            'COVER_DOWNLOAD_QUALITY' => 'medium', // thumb, small, medium, large, original
+            'MAX_COVER_FILE_SIZE' => 5 * 1024 * 1024, // 5MB
+            
+            // IGDB API Configuration
+            'IGDB_CLIENT_ID' => '',
+            'IGDB_CLIENT_SECRET' => '',
+            'IGDB_ACCESS_TOKEN' => '',
+            'IGDB_ENABLED' => true,
+            
+            // OMDb API Configuration  
+            'OMDB_API_KEY' => '',
+            'OMDB_ENABLED' => true,
+            
+            // TMDb API Configuration (optional)
+            'TMDB_API_KEY' => '',
+            'TMDB_ENABLED' => false,
+            
+            // General API Settings
+            'API_REQUEST_TIMEOUT' => 30,
+            'API_RETRY_ATTEMPTS' => 3,
+            'API_CONCURRENT_REQUESTS' => 5,
+            'COVER_STORAGE_PATH' => '/uploads/covers/',
+            'THUMBNAIL_GENERATION' => true
         ];
         
         // Load .env file if exists

@@ -50,6 +50,17 @@ class Authentication
             return ['success' => false, 'message' => 'Account is gedeactiveerd'];
         }
         
+        // Check if email is verified (only for local accounts, not OAuth)
+        if ($user['registration_method'] === 'local' && !$user['email_verified']) {
+            return [
+                'success' => false, 
+                'message' => 'Je email adres is nog niet geverifieerd. Check je inbox voor de verificatie email.',
+                'requires_verification' => true,
+                'user_id' => $user['id'],
+                'email' => $user['email']
+            ];
+        }
+        
         // Verify password
         if (!password_verify($password, $user['password_hash'])) {
             // Increment failed login attempts
@@ -178,7 +189,32 @@ class Authentication
             // Add user to default 'user' group
             self::addUserToGroup($userId, 'user');
             
+            // Send email verification (only for regular registration, not setup or OAuth)
+            $requiresVerification = !isset($userData['skip_verification']) || !$userData['skip_verification'];
+            if ($requiresVerification && class_exists('EmailVerificationHelper')) {
+                $verificationResult = EmailVerificationHelper::sendVerificationEmail($userId, $userData['email']);
+                
+                if ($verificationResult['success']) {
+                    return [
+                        'success' => true, 
+                        'message' => 'Gebruiker succesvol aangemaakt. Er is een verificatie email verstuurd naar ' . $userData['email'],
+                        'user_id' => $userId,
+                        'requires_verification' => true
+                    ];
+                } else {
+                    // Log verification email failure but don't fail registration
+                    error_log('Failed to send verification email for user ' . $userId . ': ' . $verificationResult['message']);
+                    return [
+                        'success' => true, 
+                        'message' => 'Gebruiker succesvol aangemaakt, maar verificatie email kon niet worden verzonden. Neem contact op met beheerder.',
+                        'user_id' => $userId,
+                        'verification_email_failed' => true
+                    ];
+                }
+            }
+            
             return ['success' => true, 'message' => 'Gebruiker succesvol aangemaakt', 'user_id' => $userId];
+            
         } catch (\Exception $e) {
             return ['success' => false, 'message' => 'Fout bij aanmaken gebruiker: ' . $e->getMessage()];
         }

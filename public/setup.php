@@ -52,13 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     
     if (empty($errors)) {
-        // Create admin user
+        // Create admin user (skip email verification for setup)
         $userData = [
             'username' => $username,
             'email' => $email,
             'password' => $password,
             'first_name' => $firstName,
-            'last_name' => $lastName
+            'last_name' => $lastName,
+            'skip_verification' => true
         ];
         
         $result = Authentication::register($userData);
@@ -73,6 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     SELECT ?, g.id FROM `$groupsTable` g WHERE g.name = 'admin'";
             
             Database::query($sql, [$result['user_id']]);
+            
+            // Manually verify email for setup user (since they're admin)
+            if (class_exists('EmailVerificationHelper')) {
+                EmailVerificationHelper::manuallyVerifyUser($result['user_id']);
+            }
             
             // Auto-login the new admin
             Authentication::login($username, $password);

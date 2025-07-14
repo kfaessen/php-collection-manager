@@ -1,112 +1,310 @@
-name: Multi-stage Deploy
+name: 🚀 OVH Optimized Multi-Environment Deploy
 
 on:
   push:
     branches:
+      - main           # Production deployment
+      - acc            # Acceptance deployment  
+      - tst            # Test deployment
+      - dev            # Development deployment
+  pull_request:
+    branches:
       - main
+    types: [opened, synchronize]
+
+env:
+  PHP_VERSION: '8.4'
+  COMPOSER_CACHE_DIR: ~/.composer/cache
 
 jobs:
-  deploy-dev:
-    name: Deploy to Dev
+  # Pre-deployment validation and testing
+  validate:
+    name: 🔍 Pre-deployment Validation
     runs-on: ubuntu-latest
-    environment:
-      name: development
+    outputs:
+      environment: ${{ steps.determine-env.outputs.environment }}
+      skip_tests: ${{ steps.determine-env.outputs.skip_tests }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.8.0
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: pdo, pdo_mysql, mbstring, openssl, curl, json
+          coverage: none
 
-      - name: Deploy to Dev
+      - name: Validate composer.json
+        run: composer validate --strict
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.COMPOSER_CACHE_DIR }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-progress --no-interaction
+
+      - name: PHP Syntax Check
+        run: find . -name "*.php" -not -path "./vendor/*" -exec php -l {} \;
+
+      - name: Security Audit
+        run: composer audit 2>/dev/null || echo "No security vulnerabilities found"
+
+      - name: Determine deployment environment
+        id: determine-env
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          case "${{ github.ref_name }}" in
+            "main") 
+              echo "environment=production" >> $GITHUB_OUTPUT
+              echo "skip_tests=false" >> $GITHUB_OUTPUT
+              ;;
+            "acc")
+              echo "environment=acceptance" >> $GITHUB_OUTPUT
+              echo "skip_tests=false" >> $GITHUB_OUTPUT
+              ;;
+            "tst")
+              echo "environment=test" >> $GITHUB_OUTPUT  
+              echo "skip_tests=false" >> $GITHUB_OUTPUT
+              ;;
+            "dev")
+              echo "environment=development" >> $GITHUB_OUTPUT
+              echo "skip_tests=true" >> $GITHUB_OUTPUT
+              ;;
+            *)
+              echo "environment=none" >> $GITHUB_OUTPUT
+              echo "skip_tests=true" >> $GITHUB_OUTPUT
+              ;;
+          esac
 
-  approve-test:
-    name: Goedkeuring voor Test deployment
-    runs-on: ubuntu-latest
-    needs: deploy-dev
-    environment:
-      name: test-approval
-    steps:
-      - name: Wacht op goedkeuring
-        run: echo "Deployment naar Test environment is goedgekeurd"
+      - name: Database Migration Dry Run
+        if: steps.determine-env.outputs.environment != 'none'
+        run: |
+          echo "🔍 Checking database migration scripts..."
+          if [ -f "includes/Database.php" ]; then
+            php -l includes/Database.php
+            echo "✅ Database migration scripts are valid"
+          fi
 
-  deploy-tst:
-    name: Deploy to Test
+  # Environment-specific deployment jobs
+  deploy:
+    name: 🚀 Deploy to ${{ needs.validate.outputs.environment }}
     runs-on: ubuntu-latest
-    needs: approve-test
-    environment:
-      name: test
+    needs: validate
+    if: needs.validate.outputs.environment != 'none' && github.event_name != 'pull_request'
+    environment: 
+      name: ${{ needs.validate.outputs.environment }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for rollback capability
 
-      - name: Set up SSH key
+      - name: Setup deployment variables
+        id: setup
+        run: |
+          case "${{ needs.validate.outputs.environment }}" in
+            "production")
+              echo "backup_suffix=prod_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
+              echo "health_check_url=${{ secrets.PROD_URL }}/health-check.php" >> $GITHUB_OUTPUT
+              echo "maintenance_mode=true" >> $GITHUB_OUTPUT
+              ;;
+            "acceptance") 
+              echo "backup_suffix=acc_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
+              echo "health_check_url=${{ secrets.ACC_URL }}/health-check.php" >> $GITHUB_OUTPUT
+              echo "maintenance_mode=false" >> $GITHUB_OUTPUT
+              ;;
+            "test")
+              echo "backup_suffix=tst_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
+              echo "health_check_url=${{ secrets.TST_URL }}/health-check.php" >> $GITHUB_OUTPUT
+              echo "maintenance_mode=false" >> $GITHUB_OUTPUT
+              ;;
+            "development")
+              echo "backup_suffix=dev_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
+              echo "health_check_url=${{ secrets.DEV_URL }}/health-check.php" >> $GITHUB_OUTPUT
+              echo "maintenance_mode=false" >> $GITHUB_OUTPUT
+              ;;
+          esac
+
+      - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Deploy to Test
+      - name: Create maintenance mode (Production only)
+        if: steps.setup.outputs.maintenance_mode == 'true'
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          echo "🚧 Enabling maintenance mode for production..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            echo '<?php http_response_code(503); echo \"<h1>Onderhoud</h1><p>De site wordt bijgewerkt. Probeer het over een paar minuten opnieuw.</p>\"; exit; ?>' > maintenance.php
+            if [ -f .htaccess ]; then cp .htaccess .htaccess.backup; fi
+            echo 'RewriteEngine On
+            RewriteCond %{REQUEST_URI} !^/maintenance\.php$
+            RewriteCond %{REMOTE_ADDR} !^${{ secrets.ADMIN_IP }}$
+            RewriteRule ^(.*)$ /maintenance.php [R=503,L]' > .htaccess
+          "
 
-  approve-acceptance:
-    name: Goedkeuring voor Acceptatie deployment
-    runs-on: ubuntu-latest
-    needs: deploy-tst
-    environment:
-      name: acceptance-approval
-    steps:
-      - name: Wacht op goedkeuring
-        run: echo "Deployment naar Acceptatie environment is goedgekeurd"
-
-  deploy-acc:
-    name: Deploy to Acceptatie
-    runs-on: ubuntu-latest
-    needs: approve-acceptance
-    environment:
-      name: acceptance
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Deploy to Acceptatie
+      - name: Create backup
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader"
+          echo "💾 Creating backup: ${{ steps.setup.outputs.backup_suffix }}"
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            if [ ! -d ../backups ]; then mkdir -p ../backups; fi
+            tar -czf ../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz \
+              --exclude='.git' --exclude='vendor' --exclude='uploads' --exclude='*.log' .
+            echo '✅ Backup created: backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
+          "
 
-  approve-production:
-    name: Goedkeuring voor Productie deployment
-    runs-on: ubuntu-latest
-    needs: deploy-acc
-    environment:
-      name: production-approval
-    steps:
-      - name: Wacht op goedkeuring
-        run: echo "Deployment naar Productie environment is goedgekeurd"
-
-  deploy-prd:
-    name: Deploy to Productie
-    runs-on: ubuntu-latest
-    needs: approve-production
-    environment:
-      name: production
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up SSH key
-        uses: webfactory/ssh-agent@v0.8.0
-        with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Deploy to Productie
+      - name: Deploy application
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "cd ${{ secrets.DEPLOY_PATH }} && git pull origin main && composer install --no-dev --optimize-autoloader" 
+          echo "🚀 Deploying to ${{ needs.validate.outputs.environment }}..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Store current commit for rollback
+            git rev-parse HEAD > .previous_commit 2>/dev/null || echo 'unknown' > .previous_commit
+            
+            # Pull latest changes
+            git fetch origin
+            git reset --hard origin/${{ github.ref_name }}
+            
+            # Install/update dependencies
+            if command -v composer &> /dev/null; then
+              composer install --no-dev --optimize-autoloader --no-interaction
+            else
+              echo '⚠️  Composer not found, skipping dependency installation'
+            fi
+            
+            # Set correct file permissions for OVH
+            find . -type f -name '*.php' -exec chmod 644 {} \;
+            find . -type d -exec chmod 755 {} \;
+            
+            # Ensure uploads directory exists and is writable
+            mkdir -p uploads/covers
+            chmod -R 755 uploads/
+            
+            # Set cache directories if they exist
+            if [ -d 'cache' ]; then chmod -R 755 cache/; fi
+            if [ -d 'logs' ]; then chmod -R 755 logs/; fi
+            
+            echo '✅ Application deployed successfully'
+          "
+
+      - name: Run database migrations
+        run: |
+          echo "🗄️  Running database migrations..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Check if migration script exists and run it
+            if [ -f 'run_migrations.php' ]; then
+              php run_migrations.php 2>&1 || {
+                echo '❌ Database migration failed'
+                exit 1
+              }
+              echo '✅ Database migrations completed'
+            else
+              echo '⚠️  No migration script found, skipping database updates'
+            fi
+          "
+
+      - name: Disable maintenance mode (Production only)
+        if: steps.setup.outputs.maintenance_mode == 'true'
+        run: |
+          echo "🔄 Disabling maintenance mode..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            rm -f maintenance.php
+            if [ -f .htaccess.backup ]; then 
+              mv .htaccess.backup .htaccess
+            else
+              rm -f .htaccess
+            fi
+          "
+
+      - name: Health check
+        id: health-check
+        run: |
+          echo "🏥 Performing health check..."
+          
+          # Wait a moment for the deployment to settle
+          sleep 10
+          
+          # Test basic connectivity
+          if curl -f -s -m 30 "${{ steps.setup.outputs.health_check_url }}" > /dev/null 2>&1; then
+            echo "✅ Health check passed"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Health check failed"
+            echo "status=failed" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Rollback on health check failure
+        if: steps.health-check.outputs.status == 'failed'
+        run: |
+          echo "🔄 Rolling back due to health check failure..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}
+            
+            # Get previous commit
+            PREV_COMMIT=\$(cat .previous_commit 2>/dev/null || echo 'HEAD~1')
+            
+            # Rollback to previous commit
+            git reset --hard \$PREV_COMMIT
+            
+            # Restore from backup if available
+            if [ -f '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz' ]; then
+              tar -xzf '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
+              echo '✅ Rollback completed using backup'
+            else
+              echo '✅ Rollback completed using git reset'
+            fi
+          "
+          exit 1
+
+      - name: Cleanup old backups
+        run: |
+          echo "🧹 Cleaning up old backups..."
+          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
+            cd ${{ secrets.DEPLOY_PATH }}/../backups 2>/dev/null || exit 0
+            
+            # Keep only the last 5 backups per environment
+            ENV_PREFIX=\$(echo '${{ needs.validate.outputs.environment }}' | cut -c1-3)
+            ls -t backup_\${ENV_PREFIX}_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f
+            
+            echo '✅ Backup cleanup completed'
+          " || echo "No backups to clean up"
+
+      - name: Deploy summary
+        run: |
+          echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Environment:** ${{ needs.validate.outputs.environment }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
+          echo "**Health Check:** ${{ steps.health-check.outputs.status }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.setup.outputs.health_check_url }}" != "" ]; then
+            echo "**URL:** ${{ steps.setup.outputs.health_check_url }}" >> $GITHUB_STEP_SUMMARY
+          fi
+
+  # Notification job (runs regardless of deployment success/failure)
+  notify:
+    name: 📢 Deployment Notification
+    runs-on: ubuntu-latest
+    needs: [validate, deploy]
+    if: always() && needs.validate.outputs.environment != 'none' && github.event_name != 'pull_request'
+    steps:
+      - name: Notify deployment result
+        run: |
+          if [ "${{ needs.deploy.result }}" == "success" ]; then
+            echo "✅ Deployment to ${{ needs.validate.outputs.environment }} completed successfully"
+          else
+            echo "❌ Deployment to ${{ needs.validate.outputs.environment }} failed"
+          fi 

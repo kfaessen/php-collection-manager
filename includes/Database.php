@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 4; // Huidige database versie
+    private static $currentVersion = 9; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -114,30 +114,8 @@ class Database
         
         foreach ($migrations as $version => $migration) {
             if ($version > $fromVersion && $version <= self::$currentVersion) {
-                try {
-                    self::executeMigration($version, $migration);
-                    error_log("Migration v$version executed successfully");
-                } catch (\Exception $e) {
-                    // Check if this is a non-critical error (like column already exists)
-                    if (strpos($e->getMessage(), 'Duplicate column name') !== false ||
-                        strpos($e->getMessage(), 'Duplicate key name') !== false ||
-                        strpos($e->getMessage(), 'already exists') !== false) {
-                        error_log("Migration v$version warning (non-critical): " . $e->getMessage());
-                        // Mark migration as executed even for non-critical errors
-                        try {
-                            $sql = "INSERT IGNORE INTO database_migrations (version, migration_name) VALUES (?, ?)";
-                            self::query($sql, [$version, $migration['name']]);
-                            error_log("Migration v$version marked as executed despite non-critical error");
-                        } catch (\Exception $recordError) {
-                            error_log("Failed to record migration v$version: " . $recordError->getMessage());
-                        }
-                        // Continue with next migration
-                        continue;
-                    } else {
-                        error_log("Migration v$version failed: " . $e->getMessage());
-                        throw new \Exception("Migration v$version failed: " . $e->getMessage());
-                    }
-                }
+                self::executeMigration($version, $migration);
+                error_log("Migration v$version executed successfully");
             }
         }
     }
@@ -298,6 +276,374 @@ class Database
                     // Add index if it doesn't exist
                     "CREATE INDEX IF NOT EXISTS `idx_user_id` ON `collection_items` (`user_id`)"
                 ]
+            ],
+            5 => [
+                'name' => 'Add OAuth Social Login Support',
+                'sql' => [
+                    // Social logins table
+                    "CREATE TABLE IF NOT EXISTS `social_logins` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        provider VARCHAR(50) NOT NULL,
+                        provider_id VARCHAR(255) NOT NULL,
+                        provider_email VARCHAR(255),
+                        provider_name VARCHAR(255),
+                        provider_avatar VARCHAR(500),
+                        access_token TEXT,
+                        refresh_token TEXT,
+                        expires_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_user (provider, provider_id),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_provider (provider),
+                        INDEX idx_provider_id (provider_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add OAuth state sessions table for security
+                    "CREATE TABLE IF NOT EXISTS `oauth_states` (
+                        id VARCHAR(128) PRIMARY KEY,
+                        provider VARCHAR(50) NOT NULL,
+                        state_data TEXT,
+                        expires_at TIMESTAMP NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add optional OAuth columns to users table
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `avatar_url` VARCHAR(500) NULL",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `registration_method` ENUM('local', 'google', 'facebook') DEFAULT 'local'"
+                ]
+            ],
+            6 => [
+                'name' => 'Add Internationalization (i18n) Support',
+                'sql' => [
+                    // Languages table
+                    "CREATE TABLE IF NOT EXISTS `languages` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        code VARCHAR(10) UNIQUE NOT NULL,
+                        name VARCHAR(100) NOT NULL,
+                        native_name VARCHAR(100) NOT NULL,
+                        is_rtl BOOLEAN DEFAULT FALSE,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        sort_order INT DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_code (code),
+                        INDEX idx_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Translation keys table
+                    "CREATE TABLE IF NOT EXISTS `translation_keys` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        key_name VARCHAR(255) UNIQUE NOT NULL,
+                        description TEXT,
+                        category VARCHAR(100) DEFAULT 'general',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_key_name (key_name),
+                        INDEX idx_category (category)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Translations table
+                    "CREATE TABLE IF NOT EXISTS `translations` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        key_id INT NOT NULL,
+                        language_code VARCHAR(10) NOT NULL,
+                        translation TEXT NOT NULL,
+                        is_completed BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_key_language (key_id, language_code),
+                        FOREIGN KEY (key_id) REFERENCES translation_keys(id) ON DELETE CASCADE,
+                        FOREIGN KEY (language_code) REFERENCES languages(code) ON DELETE CASCADE,
+                        INDEX idx_language (language_code),
+                        INDEX idx_completed (is_completed)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add user language preference
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `preferred_language` VARCHAR(10) DEFAULT 'nl'",
+                    
+                    // Insert default languages
+                    "INSERT IGNORE INTO `languages` (code, name, native_name, is_rtl, is_active, sort_order) VALUES 
+                        ('nl', 'Dutch', 'Nederlands', 0, 1, 1),
+                        ('en', 'English', 'English', 0, 1, 2),
+                        ('de', 'German', 'Deutsch', 0, 0, 3),
+                        ('fr', 'French', 'Français', 0, 0, 4),
+                        ('es', 'Spanish', 'Español', 0, 0, 5),
+                        ('ar', 'Arabic', 'العربية', 1, 0, 6),
+                        ('he', 'Hebrew', 'עברית', 1, 0, 7)"
+                ]
+            ],
+            7 => [
+                'name' => 'Add API Integration for Cover Images and Metadata',
+                'sql' => [
+                    // API Providers table
+                    "CREATE TABLE IF NOT EXISTS `api_providers` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(50) UNIQUE NOT NULL,
+                        description TEXT,
+                        base_url VARCHAR(255) NOT NULL,
+                        requires_auth BOOLEAN DEFAULT FALSE,
+                        rate_limit_per_minute INT DEFAULT 60,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_name (name),
+                        INDEX idx_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // API Cache table for storing API responses
+                    "CREATE TABLE IF NOT EXISTS `api_cache` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        provider_id INT NOT NULL,
+                        cache_key VARCHAR(255) NOT NULL,
+                        request_url TEXT,
+                        response_data LONGTEXT,
+                        expires_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_key (provider_id, cache_key),
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE CASCADE,
+                        INDEX idx_cache_key (cache_key),
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Item Metadata table for storing enriched data
+                    "CREATE TABLE IF NOT EXISTS `item_metadata` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        item_id INT NOT NULL,
+                        provider_id INT,
+                        external_id VARCHAR(255),
+                        metadata_type ENUM('game', 'movie', 'tv_series', 'book', 'music') NOT NULL,
+                        title VARCHAR(255),
+                        description TEXT,
+                        release_date DATE,
+                        genre VARCHAR(255),
+                        developer VARCHAR(255),
+                        publisher VARCHAR(255),
+                        director VARCHAR(255),
+                        actors TEXT,
+                        rating VARCHAR(10),
+                        imdb_rating DECIMAL(3,1),
+                        metacritic_score INT,
+                        runtime_minutes INT,
+                        language VARCHAR(10),
+                        country VARCHAR(100),
+                        platforms TEXT,
+                        tags TEXT,
+                        price_info TEXT,
+                        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_item_provider (item_id, provider_id),
+                        FOREIGN KEY (item_id) REFERENCES collection_items(id) ON DELETE CASCADE,
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE SET NULL,
+                        INDEX idx_item_id (item_id),
+                        INDEX idx_external_id (external_id),
+                        INDEX idx_metadata_type (metadata_type)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Cover Images table for managing multiple image sizes
+                    "CREATE TABLE IF NOT EXISTS `cover_images` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        item_id INT NOT NULL,
+                        provider_id INT,
+                        image_type ENUM('cover', 'poster', 'banner', 'screenshot', 'logo') DEFAULT 'cover',
+                        size_type ENUM('thumb', 'small', 'medium', 'large', 'original') DEFAULT 'medium',
+                        original_url TEXT,
+                        local_path VARCHAR(500),
+                        width INT,
+                        height INT,
+                        file_size INT,
+                        mime_type VARCHAR(50),
+                        is_primary BOOLEAN DEFAULT FALSE,
+                        download_status ENUM('pending', 'downloading', 'completed', 'failed') DEFAULT 'pending',
+                        download_attempts INT DEFAULT 0,
+                        last_download_attempt TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (item_id) REFERENCES collection_items(id) ON DELETE CASCADE,
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE SET NULL,
+                        INDEX idx_item_id (item_id),
+                        INDEX idx_image_type (image_type),
+                        INDEX idx_is_primary (is_primary),
+                        INDEX idx_download_status (download_status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // API Rate Limiting table
+                    "CREATE TABLE IF NOT EXISTS `api_rate_limits` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        provider_id INT NOT NULL,
+                        ip_address VARCHAR(45),
+                        request_count INT DEFAULT 1,
+                        window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_request TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_ip (provider_id, ip_address),
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE CASCADE,
+                        INDEX idx_window_start (window_start)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add new columns to collection_items for API integration
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `api_enriched` BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `auto_cover_enabled` BOOLEAN DEFAULT TRUE",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `last_api_check` TIMESTAMP NULL",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `api_match_confidence` DECIMAL(3,2) DEFAULT 0.00",
+                    
+                    // Insert default API providers
+                    "INSERT IGNORE INTO `api_providers` (name, description, base_url, requires_auth, rate_limit_per_minute, is_active) VALUES 
+                        ('IGDB', 'Internet Game Database - Game metadata and covers', 'https://api.igdb.com/v4/', 1, 30, 1),
+                        ('OMDb', 'Open Movie Database - Movie and TV series metadata', 'http://www.omdbapi.com/', 1, 60, 1),
+                        ('OpenLibrary', 'Open Library - Book metadata and covers', 'https://openlibrary.org/', 0, 100, 1),
+                        ('TMDb', 'The Movie Database - Movie and TV metadata with high quality images', 'https://api.themoviedb.org/3/', 1, 40, 0),
+                        ('Spotify', 'Spotify Web API - Music album metadata and covers', 'https://api.spotify.com/v1/', 1, 100, 0)"
+                ]
+            ],
+            8 => [
+                'name' => 'Add Push Notifications Support',
+                'sql' => [
+                    // Push subscriptions table
+                    "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        endpoint TEXT NOT NULL,
+                        p256dh_key TEXT NOT NULL,
+                        auth_key TEXT NOT NULL,
+                        user_agent TEXT,
+                        is_active BOOLEAN DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_active (user_id, is_active),
+                        INDEX idx_endpoint (endpoint(255))
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Notification logs table
+                    "CREATE TABLE IF NOT EXISTS `notification_logs` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT,
+                        title VARCHAR(255) NOT NULL,
+                        body TEXT,
+                        status ENUM('sent', 'failed', 'error') NOT NULL,
+                        error_message TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_date (user_id, created_at),
+                        INDEX idx_status_date (status, created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Scheduled notifications table
+                    "CREATE TABLE IF NOT EXISTS `scheduled_notifications` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        title VARCHAR(255) NOT NULL,
+                        body TEXT,
+                        data JSON,
+                        options JSON,
+                        send_at TIMESTAMP NOT NULL,
+                        sent BOOLEAN DEFAULT 0,
+                        sent_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_send_at (send_at, sent),
+                        INDEX idx_user_scheduled (user_id, send_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Notification preferences table
+                    "CREATE TABLE IF NOT EXISTS `notification_preferences` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL UNIQUE,
+                        item_added BOOLEAN DEFAULT 1,
+                        item_updated BOOLEAN DEFAULT 1,
+                        collection_shared BOOLEAN DEFAULT 1,
+                        reminders BOOLEAN DEFAULT 1,
+                        marketing BOOLEAN DEFAULT 0,
+                        quiet_hours_start TIME DEFAULT '22:00:00',
+                        quiet_hours_end TIME DEFAULT '08:00:00',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Insert notification translation keys
+                    "INSERT IGNORE INTO translation_keys (key_name, description, category) VALUES
+                        ('notification_permission_request', 'Request notification permission message', 'notifications'),
+                        ('notification_permission_granted', 'Notification permission granted message', 'notifications'),
+                        ('notification_permission_denied', 'Notification permission denied message', 'notifications'),
+                        ('notification_subscribed', 'Successfully subscribed to notifications', 'notifications'),
+                        ('notification_unsubscribed', 'Successfully unsubscribed from notifications', 'notifications'),
+                        ('test_notification_title', 'Test notification title', 'notifications'),
+                        ('test_notification_body', 'Test notification body', 'notifications'),
+                        ('notification_item_added_title', 'Item added notification title', 'notifications'),
+                        ('notification_item_added_body', 'Item added notification body', 'notifications'),
+                        ('notification_item_updated_title', 'Item updated notification title', 'notifications'),
+                        ('notification_item_updated_body', 'Item updated notification body', 'notifications'),
+                        ('notification_collection_shared_title', 'Collection shared notification title', 'notifications'),
+                        ('notification_collection_shared_body', 'Collection shared notification body', 'notifications'),
+                        ('notification_reminder_title', 'Reminder notification title', 'notifications'),
+                        ('notification_reminder_body', 'Reminder notification body', 'notifications'),
+                        ('open_app', 'Open application', 'notifications'),
+                        ('close', 'Close', 'notifications'),
+                        ('enable_notifications', 'Enable notifications', 'notifications'),
+                        ('disable_notifications', 'Disable notifications', 'notifications'),
+                        ('notification_settings', 'Notification settings', 'notifications'),
+                        ('quiet_hours', 'Quiet hours', 'notifications'),
+                        ('notification_types', 'Notification types', 'notifications')
+                    ",
+                    
+                    // Insert default translations
+                    "INSERT IGNORE INTO translations (key_id, language_code, translation) VALUES
+                        (1, 'nl', 'Wil je meldingen ontvangen voor nieuwe items en updates?'),
+                        (2, 'nl', 'Meldingen zijn ingeschakeld'),
+                        (3, 'nl', 'Meldingen zijn uitgeschakeld'),
+                        (4, 'nl', 'Je ontvangt nu meldingen'),
+                        (5, 'nl', 'Meldingen zijn uitgeschakeld'),
+                        (6, 'nl', 'Test melding'),
+                        (7, 'nl', 'Dit is een test melding van Collectiebeheer'),
+                        (8, 'nl', 'Nieuw item toegevoegd'),
+                        (9, 'nl', '{{item}} is toegevoegd aan je collectie'),
+                        (10, 'nl', 'Item bijgewerkt'),
+                        (11, 'nl', '{{item}} is bijgewerkt in je collectie'),
+                        (12, 'nl', 'Collectie gedeeld'),
+                        (13, 'nl', 'Je collectie is succesvol gedeeld'),
+                        (14, 'nl', 'Herinnering'),
+                        (15, 'nl', 'Vergeet niet {{item}} te bekijken'),
+                        (16, 'nl', 'App openen'),
+                        (17, 'nl', 'Sluiten'),
+                        (18, 'nl', 'Meldingen inschakelen'),
+                        (19, 'nl', 'Meldingen uitschakelen'),
+                        (20, 'nl', 'Melding instellingen'),
+                        (21, 'nl', 'Stille uren'),
+                        (22, 'nl', 'Melding types')
+                    "
+                ]
+            ],
+            
+            9 => [
+                'name' => 'Email verification system',
+                'sql' => [
+                    // Email verification tokens table
+                    "CREATE TABLE IF NOT EXISTS `email_verification_tokens` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        token VARCHAR(128) UNIQUE NOT NULL,
+                        email VARCHAR(255) NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
+                        verified_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        INDEX idx_token (token),
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add email verification columns to users table
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified_at` TIMESTAMP NULL AFTER `email_verified`",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `verification_reminder_sent` BOOLEAN DEFAULT FALSE AFTER `email_verified_at`",
+                    
+                    // Update existing users with email_verified = true to have verified_at timestamp
+                    "UPDATE `users` SET `email_verified_at` = `created_at` WHERE `email_verified` = 1 AND `email_verified_at` IS NULL"
+                ]
             ]
         ];
     }
@@ -309,7 +655,6 @@ class Database
     {
         $connection = self::getConnection();
         $transactionStarted = false;
-        $migrationExecuted = false;
         
         try {
             // Check if there's already an active transaction
@@ -323,15 +668,14 @@ class Database
                 try {
                     self::query($sql);
                 } catch (\Exception $e) {
-                    // For certain SQL statements that might fail (like ADD COLUMN IF NOT EXISTS),
-                    // we log the error but don't fail the entire migration
+                    // Check if this is a non-critical error (like column already exists)
                     if (strpos($sql, 'ADD COLUMN IF NOT EXISTS') !== false || 
                         strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false ||
                         strpos($e->getMessage(), 'Duplicate column name') !== false ||
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
                         strpos($e->getMessage(), 'already exists') !== false) {
-                        error_log("Migration v$version warning: " . $e->getMessage() . " (SQL: $sql)");
-                        // Continue with the migration
+                        error_log("Migration v$version warning (non-critical): " . $e->getMessage() . " (SQL: $sql)");
+                        // Continue with the migration - don't fail the entire migration
                     } else {
                         // For other errors, re-throw the exception
                         throw $e;
@@ -339,10 +683,9 @@ class Database
                 }
             }
             
-            // Record migration as executed
+            // Record migration as executed (within the same transaction)
             $sql = "INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)";
             self::query($sql, [$version, $migration['name']]);
-            $migrationExecuted = true;
             
             // Commit transaction only if we started it
             if ($transactionStarted) {
@@ -572,18 +915,40 @@ class Database
     /**
      * Get current database version (public method)
      */
-    public static function getCurrentVersion() 
-    {
-        return self::$currentVersion;
+    public static function getCurrentVersion() {
+        try {
+            return self::getCurrentDatabaseVersion();
+        } catch (Exception $e) {
+            return 0;
+        }
     }
-    
+
     /**
-     * Get installed database version (public method)
+     * Update database version
      */
-    public static function getInstalledVersion() 
-    {
-        return self::getCurrentDatabaseVersion();
+    public static function updateVersion($version) {
+        try {
+            // This method is deprecated - versions are now tracked via migrations
+            // Use executeMigration() instead for proper version tracking
+            error_log("Warning: updateVersion() is deprecated. Use migrations instead.");
+            return true;
+        } catch (Exception $e) {
+            error_log("Error updating database version: " . $e->getMessage());
+            return false;
+        }
     }
+
+    /**
+     * Run database migrations
+     */
+    public static function migrate() {
+        // This method is deprecated - migrations are now handled automatically
+        // by checkAndRunMigrations() during database initialization
+        error_log("Warning: migrate() is deprecated. Migrations are now automatic.");
+        return true;
+    }
+
+
     
     /**
      * Safely update table structure without data loss

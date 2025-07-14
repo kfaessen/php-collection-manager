@@ -21,7 +21,7 @@ try {
 }
 
 $tab = $_GET['tab'] ?? 'users';
-if (!in_array($tab, ['users', 'groups', 'stats'])) {
+if (!in_array($tab, ['users', 'groups', 'stats', 'verification'])) {
     $tab = 'users';
 }
 
@@ -30,10 +30,12 @@ try {
     $userStats = UserManager::getUserStats();
     $allGroups = UserManager::getAllGroups();
     $allPermissions = UserManager::getAllPermissions();
+    $verificationStats = EmailVerificationHelper::getVerificationStats();
 } catch (Exception $e) {
     $userStats = ['total_users' => 0, 'active_users' => 0, 'new_last_month' => 0];
     $allGroups = [];
     $allPermissions = [];
+    $verificationStats = ['total_local_users' => 0, 'verified_users' => 0, 'pending_verification' => 0, 'verification_rate' => 0, 'active_tokens' => 0];
     $feedback = 'Fout bij ophalen statistieken: ' . $e->getMessage();
 }
 
@@ -75,6 +77,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         } catch (Exception $e) {
             $feedback = 'Fout bij aanmaken gebruiker: ' . $e->getMessage();
+        }
+    }
+    
+    // Handle email verification actions
+    if (isset($_POST['verify_user'])) {
+        try {
+            $userId = (int)$_POST['user_id'];
+            $result = EmailVerificationHelper::manuallyVerifyUser($userId);
+            $feedback = $result['message'];
+        } catch (Exception $e) {
+            $feedback = 'Fout bij verifiëren gebruiker: ' . $e->getMessage();
+        }
+    }
+    
+    if (isset($_POST['resend_verification'])) {
+        try {
+            $userId = (int)$_POST['user_id'];
+            $email = Utils::sanitize($_POST['email']);
+            $result = EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
+            $feedback = $result['message'];
+        } catch (Exception $e) {
+            $feedback = 'Fout bij verzenden verificatie email: ' . $e->getMessage();
+        }
+    }
+    
+    if (isset($_POST['send_verification_reminders'])) {
+        try {
+            $result = EmailVerificationHelper::sendVerificationReminders();
+            $feedback = "Verificatie herinneringen verzonden: {$result['sent']} geslaagd, {$result['failed']} mislukt van {$result['total']} gebruikers.";
+        } catch (Exception $e) {
+            $feedback = 'Fout bij verzenden herinneringen: ' . $e->getMessage();
+        }
+    }
+    
+    if (isset($_POST['cleanup_expired_tokens'])) {
+        try {
+            EmailVerificationHelper::cleanupExpiredTokens();
+            $feedback = 'Verlopen verificatie tokens zijn opgeschoond.';
+        } catch (Exception $e) {
+            $feedback = 'Fout bij opschonen tokens: ' . $e->getMessage();
         }
     }
 }
@@ -133,6 +175,12 @@ try {
             </li>
             <li class="nav-item">
                 <a class="nav-link<?= $tab === 'stats' ? ' active' : '' ?>" href="?tab=stats"><i class="bi bi-bar-chart"></i> Statistieken</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link<?= $tab === 'verification' ? ' active' : '' ?>" href="?tab=verification"><i class="bi bi-envelope-check"></i> Email Verificatie</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link<?= $tab === 'system' ? ' active' : '' ?>" href="?tab=system"><i class="bi bi-gear"></i> Systeem</a>
             </li>
         </ul>
         <div class="tab-content">
@@ -283,6 +331,261 @@ try {
                                 <small class="text-muted">Aangemaakt deze maand</small>
                             </div>
                         </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Systeem -->
+            <div class="tab-pane fade<?= $tab === 'system' ? ' show active' : '' ?>" id="system">
+                <h4><i class="bi bi-gear"></i> Systeembeheer</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-cloud-download"></i> API Integraties</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer API integraties voor automatische metadata en cover afbeeldingen.</p>
+                                <a href="api-manager.php" class="btn btn-primary">
+                                    <i class="bi bi-gear"></i> API Manager Openen
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> TOTP Beheer</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer twee-factor authenticatie instellingen.</p>
+                                <a href="totp-setup.php" class="btn btn-outline-primary">
+                                    <i class="bi bi-shield-lock"></i> TOTP Setup
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-translate"></i> Taalinstellingen</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer ondersteunde talen en vertalingen.</p>
+                                <div class="d-grid gap-2">
+                                    <?php if (I18nHelper::isEnabled()): ?>
+                                        <?php 
+                                        $currentLang = I18nHelper::getCurrentLanguage();
+                                        $availableLanguages = I18nHelper::getAvailableLanguages();
+                                        ?>
+                                        <p><strong>Huidige taal:</strong> <?= $currentLang ?></p>
+                                        <p><strong>Beschikbare talen:</strong> <?= count($availableLanguages) ?></p>
+                                        
+                                        <?php echo CollectionManager\LanguageSwitcher::render('buttons', true, true); ?>
+                                    <?php else: ?>
+                                        <p class="text-muted">Meertalige ondersteuning is uitgeschakeld</p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-link-45deg"></i> OAuth Providers</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Sociale login providers status.</p>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>Google:</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="badge bg-<?= OAuthHelper::isEnabled('google') ? 'success' : 'secondary' ?>">
+                                            <?= OAuthHelper::isEnabled('google') ? 'Actief' : 'Inactief' ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <strong>Facebook:</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="badge bg-<?= OAuthHelper::isEnabled('facebook') ? 'success' : 'secondary' ?>">
+                                            <?= OAuthHelper::isEnabled('facebook') ? 'Actief' : 'Inactief' ?>
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Verificatie Tab -->
+            <div class="tab-pane fade<?= $tab === 'verification' ? ' show active' : '' ?>" id="verification">
+                <div class="row">
+                    <!-- Verificatie Statistieken -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-bar-chart"></i> Verificatie Statistieken</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row text-center">
+                                    <div class="col-6">
+                                        <div class="border rounded p-3">
+                                            <div class="h4 text-primary"><?= $verificationStats['total_local_users'] ?></div>
+                                            <small>Lokale Gebruikers</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6">
+                                        <div class="border rounded p-3">
+                                            <div class="h4 text-success"><?= $verificationStats['verified_users'] ?></div>
+                                            <small>Geverifieerd</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mt-3">
+                                        <div class="border rounded p-3">
+                                            <div class="h4 text-warning"><?= $verificationStats['pending_verification'] ?></div>
+                                            <small>Wacht op Verificatie</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-6 mt-3">
+                                        <div class="border rounded p-3">
+                                            <div class="h4 text-info"><?= $verificationStats['verification_rate'] ?>%</div>
+                                            <small>Verificatie Ratio</small>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <strong>Actieve tokens:</strong> <?= $verificationStats['active_tokens'] ?>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Verificatie Acties -->
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-tools"></i> Verificatie Beheer</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="d-grid gap-2">
+                                    <form method="POST" class="d-inline">
+                                        <button type="submit" name="send_verification_reminders" class="btn btn-primary w-100">
+                                            <i class="bi bi-envelope-paper"></i> Herinneringen Versturen
+                                        </button>
+                                    </form>
+                                    
+                                    <form method="POST" class="d-inline">
+                                        <button type="submit" name="cleanup_expired_tokens" class="btn btn-warning w-100">
+                                            <i class="bi bi-trash3"></i> Verlopen Tokens Opschonen
+                                        </button>
+                                    </form>
+                                </div>
+                                
+                                <div class="mt-3">
+                                    <small class="text-muted">
+                                        <strong>Email Status:</strong>
+                                        <?php if (MailHelper::isAvailable()): ?>
+                                            <span class="badge bg-success">Beschikbaar</span>
+                                        <?php else: ?>
+                                            <span class="badge bg-danger">Niet Beschikbaar</span>
+                                        <?php endif; ?>
+                                    </small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Onverifieerde Gebruikers -->
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-people"></i> Onverifieerde Gebruikers</h5>
+                    </div>
+                    <div class="card-body">
+                        <?php 
+                        // Get unverified users
+                        try {
+                            $unverifiedUsers = [];
+                            $usersTable = Environment::getTableName('users');
+                            $sql = "SELECT id, username, email, first_name, last_name, created_at, verification_reminder_sent 
+                                    FROM `$usersTable` 
+                                    WHERE email_verified = FALSE AND registration_method = 'local' 
+                                    ORDER BY created_at DESC";
+                            $stmt = Database::query($sql);
+                            $unverifiedUsers = $stmt->fetchAll();
+                        } catch (Exception $e) {
+                            $unverifiedUsers = [];
+                        }
+                        ?>
+                        
+                        <?php if (empty($unverifiedUsers)): ?>
+                            <div class="text-center py-4">
+                                <i class="bi bi-check-circle text-success" style="font-size: 3rem;"></i>
+                                <h5 class="mt-3">Alle gebruikers geverifieerd!</h5>
+                                <p class="text-muted">Er zijn geen gebruikers die wachten op email verificatie.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Gebruiker</th>
+                                            <th>Email</th>
+                                            <th>Aangemaakt</th>
+                                            <th>Herinnering</th>
+                                            <th>Acties</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php foreach ($unverifiedUsers as $user): ?>
+                                            <tr>
+                                                <td>
+                                                    <strong><?= htmlspecialchars($user['username']) ?></strong><br>
+                                                    <small class="text-muted"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></small>
+                                                </td>
+                                                <td><?= htmlspecialchars($user['email']) ?></td>
+                                                <td>
+                                                    <?= date('d-m-Y H:i', strtotime($user['created_at'])) ?><br>
+                                                    <small class="text-muted"><?= Utils::timeAgo($user['created_at']) ?></small>
+                                                </td>
+                                                <td>
+                                                    <?php if ($user['verification_reminder_sent']): ?>
+                                                        <span class="badge bg-info">Verstuurd</span>
+                                                    <?php else: ?>
+                                                        <span class="badge bg-secondary">Geen</span>
+                                                    <?php endif; ?>
+                                                </td>
+                                                <td>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <form method="POST" class="d-inline">
+                                                            <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                                            <button type="submit" name="verify_user" class="btn btn-success btn-sm" title="Handmatig verifiëren">
+                                                                <i class="bi bi-check-circle"></i>
+                                                            </button>
+                                                        </form>
+                                                        
+                                                        <form method="POST" class="d-inline">
+                                                            <input type="hidden" name="user_id" value="<?= $user['id'] ?>">
+                                                            <input type="hidden" name="email" value="<?= htmlspecialchars($user['email']) ?>">
+                                                            <button type="submit" name="resend_verification" class="btn btn-primary btn-sm" title="Verificatie email opnieuw versturen">
+                                                                <i class="bi bi-envelope-arrow-up"></i>
+                                                            </button>
+                                                        </form>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        <?php endforeach; ?>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
