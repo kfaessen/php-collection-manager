@@ -17,6 +17,7 @@ require_once __DIR__ . '/TOTPHelper.php';
 require_once __DIR__ . '/OAuthHelper.php';
 require_once __DIR__ . '/I18nHelper.php';
 require_once __DIR__ . '/MetadataEnricher.php';
+require_once __DIR__ . '/NotificationHelper.php';
 
 // Create aliases for easier usage (zonder namespace)
 use CollectionManager\Environment;

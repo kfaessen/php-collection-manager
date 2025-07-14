@@ -498,6 +498,125 @@ class Database
                         ('TMDb', 'The Movie Database - Movie and TV metadata with high quality images', 'https://api.themoviedb.org/3/', 1, 40, 0),
                         ('Spotify', 'Spotify Web API - Music album metadata and covers', 'https://api.spotify.com/v1/', 1, 100, 0)"
                 ]
+            ],
+            8 => [
+                'name' => 'Add Push Notifications Support',
+                'sql' => [
+                    // Push subscriptions table
+                    "CREATE TABLE IF NOT EXISTS `push_subscriptions` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        endpoint TEXT NOT NULL,
+                        p256dh_key TEXT NOT NULL,
+                        auth_key TEXT NOT NULL,
+                        user_agent TEXT,
+                        is_active BOOLEAN DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_active (user_id, is_active),
+                        INDEX idx_endpoint (endpoint(255))
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Notification logs table
+                    "CREATE TABLE IF NOT EXISTS `notification_logs` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT,
+                        title VARCHAR(255) NOT NULL,
+                        body TEXT,
+                        status ENUM('sent', 'failed', 'error') NOT NULL,
+                        error_message TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_date (user_id, created_at),
+                        INDEX idx_status_date (status, created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Scheduled notifications table
+                    "CREATE TABLE IF NOT EXISTS `scheduled_notifications` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        title VARCHAR(255) NOT NULL,
+                        body TEXT,
+                        data JSON,
+                        options JSON,
+                        send_at TIMESTAMP NOT NULL,
+                        sent BOOLEAN DEFAULT 0,
+                        sent_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_send_at (send_at, sent),
+                        INDEX idx_user_scheduled (user_id, send_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Notification preferences table
+                    "CREATE TABLE IF NOT EXISTS `notification_preferences` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL UNIQUE,
+                        item_added BOOLEAN DEFAULT 1,
+                        item_updated BOOLEAN DEFAULT 1,
+                        collection_shared BOOLEAN DEFAULT 1,
+                        reminders BOOLEAN DEFAULT 1,
+                        marketing BOOLEAN DEFAULT 0,
+                        quiet_hours_start TIME DEFAULT '22:00:00',
+                        quiet_hours_end TIME DEFAULT '08:00:00',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Insert notification translation keys
+                    "INSERT IGNORE INTO translation_keys (key_name, description, category) VALUES
+                        ('notification_permission_request', 'Request notification permission message', 'notifications'),
+                        ('notification_permission_granted', 'Notification permission granted message', 'notifications'),
+                        ('notification_permission_denied', 'Notification permission denied message', 'notifications'),
+                        ('notification_subscribed', 'Successfully subscribed to notifications', 'notifications'),
+                        ('notification_unsubscribed', 'Successfully unsubscribed from notifications', 'notifications'),
+                        ('test_notification_title', 'Test notification title', 'notifications'),
+                        ('test_notification_body', 'Test notification body', 'notifications'),
+                        ('notification_item_added_title', 'Item added notification title', 'notifications'),
+                        ('notification_item_added_body', 'Item added notification body', 'notifications'),
+                        ('notification_item_updated_title', 'Item updated notification title', 'notifications'),
+                        ('notification_item_updated_body', 'Item updated notification body', 'notifications'),
+                        ('notification_collection_shared_title', 'Collection shared notification title', 'notifications'),
+                        ('notification_collection_shared_body', 'Collection shared notification body', 'notifications'),
+                        ('notification_reminder_title', 'Reminder notification title', 'notifications'),
+                        ('notification_reminder_body', 'Reminder notification body', 'notifications'),
+                        ('open_app', 'Open application', 'notifications'),
+                        ('close', 'Close', 'notifications'),
+                        ('enable_notifications', 'Enable notifications', 'notifications'),
+                        ('disable_notifications', 'Disable notifications', 'notifications'),
+                        ('notification_settings', 'Notification settings', 'notifications'),
+                        ('quiet_hours', 'Quiet hours', 'notifications'),
+                        ('notification_types', 'Notification types', 'notifications')
+                    ",
+                    
+                    // Insert default translations
+                    "INSERT IGNORE INTO translations (key_id, language_code, translation) VALUES
+                        (1, 'nl', 'Wil je meldingen ontvangen voor nieuwe items en updates?'),
+                        (2, 'nl', 'Meldingen zijn ingeschakeld'),
+                        (3, 'nl', 'Meldingen zijn uitgeschakeld'),
+                        (4, 'nl', 'Je ontvangt nu meldingen'),
+                        (5, 'nl', 'Meldingen zijn uitgeschakeld'),
+                        (6, 'nl', 'Test melding'),
+                        (7, 'nl', 'Dit is een test melding van Collectiebeheer'),
+                        (8, 'nl', 'Nieuw item toegevoegd'),
+                        (9, 'nl', '{{item}} is toegevoegd aan je collectie'),
+                        (10, 'nl', 'Item bijgewerkt'),
+                        (11, 'nl', '{{item}} is bijgewerkt in je collectie'),
+                        (12, 'nl', 'Collectie gedeeld'),
+                        (13, 'nl', 'Je collectie is succesvol gedeeld'),
+                        (14, 'nl', 'Herinnering'),
+                        (15, 'nl', 'Vergeet niet {{item}} te bekijken'),
+                        (16, 'nl', 'App openen'),
+                        (17, 'nl', 'Sluiten'),
+                        (18, 'nl', 'Meldingen inschakelen'),
+                        (19, 'nl', 'Meldingen uitschakelen'),
+                        (20, 'nl', 'Melding instellingen'),
+                        (21, 'nl', 'Stille uren'),
+                        (22, 'nl', 'Melding types')
+                    "
+                ]
             ]
         ];
     }
@@ -769,17 +888,242 @@ class Database
     /**
      * Get current database version (public method)
      */
-    public static function getCurrentVersion() 
-    {
-        return self::$currentVersion;
+    public static function getCurrentVersion() {
+        try {
+            $db = self::getInstance();
+            $stmt = $db->query("SELECT version FROM database_version ORDER BY version DESC LIMIT 1");
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            return $result ? (int)$result['version'] : 0;
+        } catch (Exception $e) {
+            return 0;
+        }
     }
-    
+
     /**
-     * Get installed database version (public method)
+     * Update database version
      */
-    public static function getInstalledVersion() 
-    {
-        return self::getCurrentDatabaseVersion();
+    public static function updateVersion($version) {
+        try {
+            $db = self::getInstance();
+            $stmt = $db->prepare("INSERT INTO database_version (version, updated_at) VALUES (?, NOW())");
+            return $stmt->execute([$version]);
+        } catch (Exception $e) {
+            error_log("Error updating database version: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Run database migrations
+     */
+    public static function migrate() {
+        $currentVersion = self::getCurrentVersion();
+        
+        if ($currentVersion < 8) {
+            self::migrateToVersion8();
+        }
+        if ($currentVersion < 7) {
+            self::migrateToVersion7();
+        }
+        if ($currentVersion < 6) {
+            self::migrateToVersion6();
+        }
+        if ($currentVersion < 5) {
+            self::migrateToVersion5();
+        }
+        if ($currentVersion < 4) {
+            self::migrateToVersion4();
+        }
+        
+        return true;
+    }
+
+    /**
+     * Migrate to version 8 - Push Notifications
+     */
+    private static function migrateToVersion8() {
+        try {
+            $db = self::getInstance();
+            
+            // Create push_subscriptions table
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS push_subscriptions (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    endpoint TEXT NOT NULL,
+                    p256dh_key TEXT NOT NULL,
+                    auth_key TEXT NOT NULL,
+                    user_agent TEXT,
+                    is_active BOOLEAN DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_user_active (user_id, is_active),
+                    INDEX idx_endpoint (endpoint(255))
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            
+            // Create notification_logs table
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS notification_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT,
+                    title VARCHAR(255) NOT NULL,
+                    body TEXT,
+                    status ENUM('sent', 'failed', 'error') NOT NULL,
+                    error_message TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_user_date (user_id, created_at),
+                    INDEX idx_status_date (status, created_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            
+            // Create scheduled_notifications table
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS scheduled_notifications (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL,
+                    title VARCHAR(255) NOT NULL,
+                    body TEXT,
+                    data JSON,
+                    options JSON,
+                    send_at TIMESTAMP NOT NULL,
+                    sent BOOLEAN DEFAULT 0,
+                    sent_at TIMESTAMP NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                    INDEX idx_send_at (send_at, sent),
+                    INDEX idx_user_scheduled (user_id, send_at)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            
+            // Create notification_preferences table
+            $db->exec("
+                CREATE TABLE IF NOT EXISTS notification_preferences (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    user_id INT NOT NULL UNIQUE,
+                    item_added BOOLEAN DEFAULT 1,
+                    item_updated BOOLEAN DEFAULT 1,
+                    collection_shared BOOLEAN DEFAULT 1,
+                    reminders BOOLEAN DEFAULT 1,
+                    marketing BOOLEAN DEFAULT 0,
+                    quiet_hours_start TIME DEFAULT '22:00:00',
+                    quiet_hours_end TIME DEFAULT '08:00:00',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ");
+            
+            // Insert notification translation keys
+            $db->exec("
+                INSERT IGNORE INTO translation_keys (key_name, description, category) VALUES
+                ('notification_permission_request', 'Request notification permission message', 'notifications'),
+                ('notification_permission_granted', 'Notification permission granted message', 'notifications'),
+                ('notification_permission_denied', 'Notification permission denied message', 'notifications'),
+                ('notification_subscribed', 'Successfully subscribed to notifications', 'notifications'),
+                ('notification_unsubscribed', 'Successfully unsubscribed from notifications', 'notifications'),
+                ('test_notification_title', 'Test notification title', 'notifications'),
+                ('test_notification_body', 'Test notification body', 'notifications'),
+                ('notification_item_added_title', 'Item added notification title', 'notifications'),
+                ('notification_item_added_body', 'Item added notification body', 'notifications'),
+                ('notification_item_updated_title', 'Item updated notification title', 'notifications'),
+                ('notification_item_updated_body', 'Item updated notification body', 'notifications'),
+                ('notification_collection_shared_title', 'Collection shared notification title', 'notifications'),
+                ('notification_collection_shared_body', 'Collection shared notification body', 'notifications'),
+                ('notification_reminder_title', 'Reminder notification title', 'notifications'),
+                ('notification_reminder_body', 'Reminder notification body', 'notifications'),
+                ('open_app', 'Open application', 'notifications'),
+                ('close', 'Close', 'notifications'),
+                ('enable_notifications', 'Enable notifications', 'notifications'),
+                ('disable_notifications', 'Disable notifications', 'notifications'),
+                ('notification_settings', 'Notification settings', 'notifications'),
+                ('quiet_hours', 'Quiet hours', 'notifications'),
+                ('notification_types', 'Notification types')
+            ");
+            
+            // Insert default translations
+            $translations = [
+                'nl' => [
+                    'notification_permission_request' => 'Wil je meldingen ontvangen voor nieuwe items en updates?',
+                    'notification_permission_granted' => 'Meldingen zijn ingeschakeld',
+                    'notification_permission_denied' => 'Meldingen zijn uitgeschakeld',
+                    'notification_subscribed' => 'Je ontvangt nu meldingen',
+                    'notification_unsubscribed' => 'Meldingen zijn uitgeschakeld',
+                    'test_notification_title' => 'Test melding',
+                    'test_notification_body' => 'Dit is een test melding van Collectiebeheer',
+                    'notification_item_added_title' => 'Nieuw item toegevoegd',
+                    'notification_item_added_body' => '{{item}} is toegevoegd aan je collectie',
+                    'notification_item_updated_title' => 'Item bijgewerkt',
+                    'notification_item_updated_body' => '{{item}} is bijgewerkt in je collectie',
+                    'notification_collection_shared_title' => 'Collectie gedeeld',
+                    'notification_collection_shared_body' => 'Je collectie is succesvol gedeeld',
+                    'notification_reminder_title' => 'Herinnering',
+                    'notification_reminder_body' => 'Vergeet niet {{item}} te bekijken',
+                    'open_app' => 'App openen',
+                    'close' => 'Sluiten',
+                    'enable_notifications' => 'Meldingen inschakelen',
+                    'disable_notifications' => 'Meldingen uitschakelen',
+                    'notification_settings' => 'Melding instellingen',
+                    'quiet_hours' => 'Stille uren',
+                    'notification_types' => 'Melding types'
+                ],
+                'en' => [
+                    'notification_permission_request' => 'Would you like to receive notifications for new items and updates?',
+                    'notification_permission_granted' => 'Notifications are enabled',
+                    'notification_permission_denied' => 'Notifications are disabled',
+                    'notification_subscribed' => 'You will now receive notifications',
+                    'notification_unsubscribed' => 'Notifications are disabled',
+                    'test_notification_title' => 'Test notification',
+                    'test_notification_body' => 'This is a test notification from Collection Manager',
+                    'notification_item_added_title' => 'New item added',
+                    'notification_item_added_body' => '{{item}} has been added to your collection',
+                    'notification_item_updated_title' => 'Item updated',
+                    'notification_item_updated_body' => '{{item}} has been updated in your collection',
+                    'notification_collection_shared_title' => 'Collection shared',
+                    'notification_collection_shared_body' => 'Your collection has been shared successfully',
+                    'notification_reminder_title' => 'Reminder',
+                    'notification_reminder_body' => 'Don\'t forget to check out {{item}}',
+                    'open_app' => 'Open app',
+                    'close' => 'Close',
+                    'enable_notifications' => 'Enable notifications',
+                    'disable_notifications' => 'Disable notifications',
+                    'notification_settings' => 'Notification settings',
+                    'quiet_hours' => 'Quiet hours',
+                    'notification_types' => 'Notification types'
+                ]
+            ];
+            
+            // Insert translations for each language
+            foreach ($translations as $langCode => $langTranslations) {
+                $langStmt = $db->prepare("SELECT id FROM languages WHERE code = ?");
+                $langStmt->execute([$langCode]);
+                $language = $langStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($language) {
+                    foreach ($langTranslations as $key => $translation) {
+                        $keyStmt = $db->prepare("SELECT id FROM translation_keys WHERE key_name = ?");
+                        $keyStmt->execute([$key]);
+                        $translationKey = $keyStmt->fetch(PDO::FETCH_ASSOC);
+                        
+                        if ($translationKey) {
+                            $db->prepare("
+                                INSERT IGNORE INTO translations (key_id, language_id, translation) 
+                                VALUES (?, ?, ?)
+                            ")->execute([$translationKey['id'], $language['id'], $translation]);
+                        }
+                    }
+                }
+            }
+            
+            self::updateVersion(8);
+            echo "Database migrated to version 8 (Push Notifications)\n";
+            
+        } catch (Exception $e) {
+            error_log("Error migrating to version 8: " . $e->getMessage());
+            throw $e;
+        }
     }
     
     /**

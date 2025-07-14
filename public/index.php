@@ -88,6 +88,17 @@ function handleAjaxRequest()
                 }
                 
                 $id = CollectionManager::addItem($data);
+                
+                // Send push notification for new item
+                if ($id && class_exists('NotificationHelper') && NotificationHelper::isAvailable()) {
+                    NotificationHelper::sendCollectionNotification(
+                        Authentication::getCurrentUserId(),
+                        'item_added',
+                        $data['title'],
+                        ['item_id' => $id, 'type' => $data['type']]
+                    );
+                }
+                
                 Utils::successResponse(['id' => $id], 'Item toegevoegd aan collectie');
                 break;
                 
@@ -181,8 +192,31 @@ function handleAjaxRequest()
 <html lang="<?= I18nHelper::getCurrentLanguage() ?>" dir="<?= I18nHelper::getDirection() ?>"
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, maximum-scale=5.0">
     <title>Collectiebeheer - Games, Films & Series</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="description" content="Beheer je games, films en series collectie met barcode scanning en metadata lookup">
+    <meta name="theme-color" content="#0d6efd">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Collectiebeheer">
+    <meta name="msapplication-TileColor" content="#0d6efd">
+    <meta name="msapplication-config" content="../assets/icons/browserconfig.xml">
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="../manifest.json">
+    
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/x-icon" href="../assets/icons/favicon.ico">
+    <link rel="icon" type="image/png" sizes="16x16" href="../assets/icons/favicon-16x16.png">
+    <link rel="icon" type="image/png" sizes="32x32" href="../assets/icons/favicon-32x32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="../assets/icons/apple-touch-icon.png">
+    <link rel="mask-icon" href="../assets/icons/safari-pinned-tab.svg" color="#0d6efd">
+    
+    <!-- Performance and SEO -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+    <link rel="dns-prefetch" href="https://unpkg.com">
     
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -192,71 +226,93 @@ function handleAjaxRequest()
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <!-- Custom CSS -->
     <link href="../assets/css/style.css" rel="stylesheet">
+    
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('../sw.js')
+                    .then(function(registration) {
+                        console.log('SW registered: ', registration);
+                    })
+                    .catch(function(registrationError) {
+                        console.log('SW registration failed: ', registrationError);
+                    });
+            });
+        }
+    </script>
 </head>
 <body>
+    <!-- Skip Link for Accessibility -->
+    <a href="#main-content" class="skip-link">Skip to main content</a>
+    
     <!-- Navigation -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
             <a class="navbar-brand" href="index.php">
                 <i class="bi bi-collection"></i> Collectiebeheer
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="index.php">Overzicht</a>
+                        <a class="nav-link" href="index.php">
+                            <i class="bi bi-house"></i> Overzicht
+                        </a>
                     </li>
                     <?php if (Authentication::hasPermission('manage_users')): ?>
                         <li class="nav-item">
-                            <a class="nav-link" href="admin.php">Beheer</a>
+                            <a class="nav-link" href="admin.php">
+                                <i class="bi bi-gear"></i> Beheer
+                            </a>
                         </li>
                     <?php endif; ?>
                 </ul>
                 
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center flex-wrap">
                     <?php if (Authentication::hasPermission('manage_own_collection')): ?>
-                        <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                            <i class="bi bi-plus-lg"></i> Item Toevoegen
+                        <button class="btn btn-success me-2 mb-2 mb-lg-0" data-bs-toggle="modal" data-bs-target="#addItemModal"
+                                aria-label="Nieuw item toevoegen">
+                            <i class="bi bi-plus-lg"></i> 
+                            <span class="d-none d-sm-inline">Item Toevoegen</span>
                         </button>
                     <?php endif; ?>
                     
                     <!-- Language Switcher -->
                     <?php if (I18nHelper::isEnabled()): ?>
-                        <div class="me-2">
+                        <div class="me-2 mb-2 mb-lg-0">
                             <?= CollectionManager\LanguageSwitcher::render('dropdown', true, false) ?>
                         </div>
                     <?php endif; ?>
                     
                     <div class="dropdown">
-                        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <button class="btn btn-outline-light dropdown-toggle" type="button" data-bs-toggle="dropdown"
+                                aria-expanded="false" aria-label="User menu">
                             <i class="bi bi-person-circle"></i> 
-                            <?= htmlspecialchars(Authentication::getCurrentUser()['first_name']) ?>
+                            <span class="d-none d-sm-inline"><?= htmlspecialchars(Authentication::getCurrentUser()['first_name']) ?></span>
                         </button>
-                        <ul class="dropdown-menu">
-                            <li><h6 class="dropdown-header">
-                                <?= htmlspecialchars(Authentication::getCurrentUser()['first_name'] . ' ' . Authentication::getCurrentUser()['last_name']) ?>
-                            </h6></li>
-                            <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#shareModal">
-                                <i class="bi bi-share"></i> Deel je collectie
-                            </a></li>
-                            <li><a class="dropdown-item" href="profile.php">
-                                <i class="bi bi-person"></i> Profiel
-                            </a></li>
-                            <li><a class="dropdown-item" href="totp-setup.php">
-                                <i class="bi bi-shield-lock"></i> Twee-factor authenticatie
-                            </a></li>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <a class="dropdown-item" href="profile.php">
+                                    <i class="bi bi-person"></i> Mijn Profiel
+                                </a>
+                            </li>
                             <?php if (Authentication::hasPermission('manage_users')): ?>
-                                <li><a class="dropdown-item" href="admin.php">
-                                    <i class="bi bi-gear"></i> Beheer
-                                </a></li>
+                                <li>
+                                    <a class="dropdown-item" href="admin.php">
+                                        <i class="bi bi-gear"></i> Beheer
+                                    </a>
+                                </li>
                             <?php endif; ?>
                             <li><hr class="dropdown-divider"></li>
-                            <li><a class="dropdown-item" href="logout.php">
-                                <i class="bi bi-box-arrow-right"></i> Uitloggen
-                            </a></li>
+                            <li>
+                                <a class="dropdown-item" href="logout.php">
+                                    <i class="bi bi-box-arrow-right"></i> Uitloggen
+                                </a>
+                            </li>
                         </ul>
                     </div>
                 </div>
@@ -264,101 +320,159 @@ function handleAjaxRequest()
         </div>
     </nav>
 
-    <div class="container mt-4">
-        <!-- Search and Filter -->
-        <div class="row mb-4">
-            <div class="col-md-8">
-                <form method="GET" class="d-flex">
-                    <input type="text" name="search" class="form-control me-2" placeholder="Zoeken in collectie..." value="<?= htmlspecialchars($search) ?>">
-                    <select name="type" class="form-select me-2" style="width: auto;">
-                        <option value="">Alle types</option>
-                        <option value="game" <?= $typeFilter === 'game' ? 'selected' : '' ?>>Games</option>
-                        <option value="film" <?= $typeFilter === 'film' ? 'selected' : '' ?>>Films</option>
-                        <option value="serie" <?= $typeFilter === 'serie' ? 'selected' : '' ?>>Series</option>
-                    </select>
-                    <button type="submit" class="btn btn-outline-primary">
-                        <i class="bi bi-search"></i>
-                    </button>
-                </form>
-            </div>
-            <div class="col-md-4 text-end">
-                <small class="text-muted"><?= $totalItems ?> items in collectie</small>
-            </div>
-        </div>
-
-        <!-- Items Grid -->
-        <div class="row">
-            <?php if (empty($items)): ?>
+    <!-- Main Content -->
+    <main id="main-content">
+        <div class="container mt-4">
+            <!-- Search and Filter -->
+            <div class="row mb-4">
                 <div class="col-12">
-                    <div class="alert alert-info text-center">
-                        <h4>Geen items gevonden</h4>
-                        <p>Voeg uw eerste item toe aan de collectie!</p>
-                        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
-                            <i class="bi bi-plus-lg"></i> Item Toevoegen
-                        </button>
-                    </div>
-                </div>
-            <?php else: ?>
-                <?php foreach ($items as $item): ?>
-                    <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
-                        <div class="card h-100 item-card">
-                            <?php if ($item['cover_image']): ?>
-                                <img src="<?= htmlspecialchars($item['cover_image']) ?>" class="card-img-top item-cover" alt="Cover">
-                            <?php else: ?>
-                                <div class="card-img-top placeholder-cover d-flex align-items-center justify-content-center">
-                                    <i class="bi bi-image fs-1 text-muted"></i>
-                                </div>
-                            <?php endif; ?>
-                            
-                            <div class="card-body d-flex flex-column">
-                                <h6 class="card-title"><?= htmlspecialchars($item['title']) ?></h6>
-                                
-                                <div class="mb-2">
-                                    <span class="badge bg-secondary"><?= ucfirst($item['type']) ?></span>
-                                    <?php if ($item['platform']): ?>
-                                        <span class="badge bg-info"><?= htmlspecialchars($item['platform']) ?></span>
-                                    <?php endif; ?>
-                                </div>
-                                
-                                <?php if ($item['description']): ?>
-                                    <p class="card-text text-muted small flex-grow-1">
-                                        <?= htmlspecialchars(substr($item['description'], 0, 100)) ?>
-                                        <?= strlen($item['description']) > 100 ? '...' : '' ?>
-                                    </p>
-                                <?php endif; ?>
-                                
-                                <div class="mt-auto">
-                                    <small class="text-muted">
-                                        Toegevoegd: <?= Utils::formatDate($item['created_at']) ?>
-                                    </small>
-                                    <div class="btn-group w-100 mt-2">
-                                        <button class="btn btn-sm btn-outline-primary" onclick="viewItem(<?= $item['id'] ?>)">
-                                            <i class="bi bi-eye"></i>
-                                        </button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deleteItem(<?= $item['id'] ?>)">
-                                            <i class="bi bi-trash"></i>
-                                        </button>
-                                    </div>
+                    <form method="GET" class="search-form">
+                        <div class="row g-2 align-items-center">
+                            <div class="col-12 col-md-6 col-lg-5">
+                                <div class="position-relative">
+                                    <input type="text" name="search" class="form-control" 
+                                           placeholder="Zoeken in collectie..." 
+                                           value="<?= htmlspecialchars($search) ?>"
+                                           aria-label="Zoeken in collectie">
+                                    <button type="button" class="btn btn-link position-absolute end-0 top-50 translate-middle-y me-2" 
+                                            style="display: none;" aria-label="Clear search">
+                                        <i class="bi bi-x-circle"></i>
+                                    </button>
                                 </div>
                             </div>
+                            <div class="col-12 col-md-4 col-lg-3">
+                                <select name="type" class="form-select" aria-label="Filter by type">
+                                    <option value="">Alle types</option>
+                                    <option value="game" <?= $typeFilter === 'game' ? 'selected' : '' ?>>Games</option>
+                                    <option value="film" <?= $typeFilter === 'film' ? 'selected' : '' ?>>Films</option>
+                                    <option value="serie" <?= $typeFilter === 'serie' ? 'selected' : '' ?>>Series</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-md-2 col-lg-2">
+                                <button type="submit" class="btn btn-outline-primary w-100" aria-label="Search">
+                                    <i class="bi bi-search"></i>
+                                    <span class="d-none d-lg-inline">Zoeken</span>
+                                </button>
+                            </div>
+                            <div class="col-12 col-lg-2 text-end">
+                                <small class="text-muted">
+                                    <i class="bi bi-collection"></i> 
+                                    <?= $totalItems ?> items
+                                </small>
+                            </div>
                         </div>
-                    </div>
-                <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
-
-        <!-- Pagination -->
-        <?php if ($totalItems > $itemsPerPage): ?>
-            <div class="row">
-                <div class="col-12">
-                    <?php
-                    $baseUrl = "index.php?search=" . urlencode($search) . "&type=" . urlencode($typeFilter);
-                    echo Utils::generatePagination($page, $totalItems, $itemsPerPage, $baseUrl);
-                    ?>
+                    </form>
                 </div>
             </div>
-        <?php endif; ?>
-    </div>
+
+            <!-- Items Grid -->
+            <div class="row" id="items-grid">
+                <?php if (empty($items)): ?>
+                    <div class="col-12">
+                        <div class="alert alert-info text-center">
+                            <div class="mb-3">
+                                <i class="bi bi-collection fs-1"></i>
+                            </div>
+                            <h4>Geen items gevonden</h4>
+                            <p class="mb-3">
+                                <?php if ($search || $typeFilter): ?>
+                                    Geen items gevonden met de huidige filters. Probeer andere zoektermen.
+                                <?php else: ?>
+                                    Voeg uw eerste item toe aan de collectie!
+                                <?php endif; ?>
+                            </p>
+                            <?php if (Authentication::hasPermission('manage_own_collection')): ?>
+                                <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addItemModal">
+                                    <i class="bi bi-plus-lg"></i> Item Toevoegen
+                                </button>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($items as $item): ?>
+                        <div class="col-lg-3 col-md-4 col-sm-6 mb-4">
+                            <article class="card h-100 item-card" 
+                                     tabindex="0" 
+                                     role="button"
+                                     aria-label="Item: <?= htmlspecialchars($item['title']) ?>"
+                                     data-item-id="<?= $item['id'] ?>">
+                                <?php if ($item['cover_image']): ?>
+                                    <img src="<?= htmlspecialchars($item['cover_image']) ?>" 
+                                         class="card-img-top item-cover" 
+                                         alt="Cover van <?= htmlspecialchars($item['title']) ?>"
+                                         loading="lazy"
+                                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                                    <div class="card-img-top placeholder-cover d-none align-items-center justify-content-center">
+                                        <i class="bi bi-image fs-1 text-muted" aria-hidden="true"></i>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="card-img-top placeholder-cover d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-image fs-1 text-muted" aria-hidden="true"></i>
+                                    </div>
+                                <?php endif; ?>
+                                
+                                <div class="card-body d-flex flex-column">
+                                    <h3 class="card-title h6"><?= htmlspecialchars($item['title']) ?></h3>
+                                    
+                                    <div class="mb-2">
+                                        <span class="badge bg-secondary"><?= ucfirst($item['type']) ?></span>
+                                        <?php if ($item['platform']): ?>
+                                            <span class="badge bg-info"><?= htmlspecialchars($item['platform']) ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    
+                                    <?php if ($item['description']): ?>
+                                        <p class="card-text text-muted small flex-grow-1 text-truncate-3">
+                                            <?= htmlspecialchars($item['description']) ?>
+                                        </p>
+                                    <?php endif; ?>
+                                    
+                                    <div class="mt-auto">
+                                        <small class="text-muted d-block mb-2">
+                                            <i class="bi bi-calendar-plus"></i>
+                                            Toegevoegd: <?= Utils::formatDate($item['created_at']) ?>
+                                        </small>
+                                        <div class="btn-group w-100" role="group" aria-label="Item actions">
+                                            <button class="btn btn-sm btn-outline-primary" 
+                                                    onclick="viewItem(<?= $item['id'] ?>)"
+                                                    aria-label="Bekijk <?= htmlspecialchars($item['title']) ?>">
+                                                <i class="bi bi-eye"></i>
+                                                <span class="d-none d-lg-inline">Bekijk</span>
+                                            </button>
+                                            <?php if (Authentication::hasPermission('manage_own_collection') || 
+                                                     (Authentication::hasPermission('manage_all_collections') && 
+                                                      CollectionManager::canUserModifyItem(Authentication::getCurrentUserId(), $item['id']))): ?>
+                                                <button class="btn btn-sm btn-outline-danger" 
+                                                        onclick="deleteItem(<?= $item['id'] ?>)"
+                                                        aria-label="Verwijder <?= htmlspecialchars($item['title']) ?>">
+                                                    <i class="bi bi-trash"></i>
+                                                    <span class="d-none d-lg-inline">Verwijder</span>
+                                                </button>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                </div>
+                            </article>
+                        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- Pagination -->
+            <?php if ($totalItems > $itemsPerPage): ?>
+                <div class="row">
+                    <div class="col-12">
+                        <nav aria-label="Pagination Navigation">
+                            <?php
+                            $baseUrl = "index.php?search=" . urlencode($search) . "&type=" . urlencode($typeFilter);
+                            echo Utils::generatePagination($page, $totalItems, $itemsPerPage, $baseUrl);
+                            ?>
+                        </nav>
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    </main>
 
     <!-- Add Item Modal -->
     <div class="modal fade" id="addItemModal" tabindex="-1">
