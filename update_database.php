@@ -23,17 +23,17 @@ try {
     echo "✓ Database initialized\n";
     
     // Check current database version
-    $currentVersion = Database::getCurrentVersion();
-    $installedVersion = Database::getInstalledVersion();
+    $installedVersion = Database::getCurrentVersion();
+    $targetVersion = Database::getTargetVersion();
     
     echo "\nVersion Information:\n";
-    echo "- Current version: $currentVersion\n";
     echo "- Installed version: $installedVersion\n";
+    echo "- Target version: $targetVersion\n";
     
-    if ($installedVersion >= $currentVersion) {
+    if ($installedVersion >= $targetVersion) {
         echo "✓ Database is up to date\n";
     } else {
-        echo "⚠ Database was updated from version $installedVersion to $currentVersion\n";
+        echo "⚠ Database was updated from version $installedVersion to $targetVersion\n";
     }
     
     // Safely check and update collection_items table structure

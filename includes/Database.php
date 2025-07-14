@@ -672,6 +672,11 @@ class Database
         $transactionStarted = false;
         
         try {
+            // Ensure we have a valid connection
+            if (!$connection) {
+                throw new \Exception("Database connection not available");
+            }
+            
             // Check if there's already an active transaction
             if (!$connection->inTransaction()) {
                 $connection->beginTransaction();
@@ -709,8 +714,12 @@ class Database
             
         } catch (\Exception $e) {
             // Rollback if we started the transaction and it's still active
-            if ($transactionStarted && $connection->inTransaction()) {
-                $connection->rollBack();
+            if ($transactionStarted && $connection && $connection->inTransaction()) {
+                try {
+                    $connection->rollBack();
+                } catch (\Exception $rollbackException) {
+                    error_log("Failed to rollback transaction: " . $rollbackException->getMessage());
+                }
             }
             throw $e;
         }
@@ -920,8 +929,8 @@ class Database
     public static function needsSetup() 
     {
         try {
-            $currentVersion = self::getCurrentDatabaseVersion();
-            return $currentVersion < self::$currentVersion;
+            $currentVersion = self::getCurrentVersion();
+            return $currentVersion < self::getTargetVersion();
         } catch (\Exception $e) {
             return true;
         }
@@ -932,10 +941,27 @@ class Database
      */
     public static function getCurrentVersion() {
         try {
+            if (!self::$initialized) {
+                self::init();
+            }
             return self::getCurrentDatabaseVersion();
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return 0;
         }
+    }
+    
+    /**
+     * Get target database version (the version the code expects)
+     */
+    public static function getTargetVersion() {
+        return self::$currentVersion;
+    }
+    
+    /**
+     * Get installed database version (alias for getCurrentVersion for clarity)
+     */
+    public static function getInstalledVersion() {
+        return self::getCurrentVersion();
     }
 
     /**
