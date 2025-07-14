@@ -180,6 +180,9 @@ RewriteRule ^notifications$ /public/notifications.php [L,QSA]
 # Handle health check
 RewriteRule ^health-check$ /public/health-check.php [L]
 
+# Handle database setup
+RewriteRule ^setup$ /public/setup.php [L,QSA]
+
 # ==========================================
 # ERROR HANDLING
 # ==========================================

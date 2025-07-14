@@ -39,7 +39,30 @@ class Database
             self::checkAndRunMigrations();
             
         } catch (\PDOException $e) {
-            // Always show detailed error in development
+            // Check if this is a "table doesn't exist" error
+            if (strpos($e->getMessage(), "doesn't exist") !== false || 
+                strpos($e->getMessage(), "Unknown table") !== false ||
+                strpos($e->getMessage(), "Table") !== false && strpos($e->getMessage(), "doesn't exist") !== false) {
+                
+                // Try to automatically setup the database
+                try {
+                    self::autoSetup();
+                    // Retry connection after setup
+                    self::init();
+                    return;
+                } catch (\Exception $setupError) {
+                    // If auto-setup fails, show setup instructions
+                    if (Environment::isDevelopment()) {
+                        die("Database connection failed: " . $e->getMessage() . "\n\nAuto-setup failed: " . $setupError->getMessage() . "\n\nPlease visit: /public/setup.php?token=setup_" . date('Ymd'));
+                    } else {
+                        error_log("Database connection failed: " . $e->getMessage());
+                        error_log("Auto-setup failed: " . $setupError->getMessage());
+                        die("Database connection failed. Please visit: /public/setup.php?token=setup_" . date('Ymd') . " to setup the database.");
+                    }
+                }
+            }
+            
+            // For other database errors, show normal error
             if (Environment::isDevelopment()) {
                 die("Database connection failed: " . $e->getMessage() . "\n\nPlease run setup_database.php to create the database and tables.");
             } else {
@@ -1055,9 +1078,98 @@ class Database
     }
     
     /**
+     * Automatically setup database when tables don't exist
+     */
+    private static function autoSetup() 
+    {
+        try {
+            // Connect to MySQL server without database
+            $host = Environment::get('DB_HOST', 'localhost');
+            $username = Environment::get('DB_USER', 'root');
+            $password = Environment::get('DB_PASS', '');
+            $charset = Environment::get('DB_CHARSET', 'utf8mb4');
+            
+            $dsn = "mysql:host=$host;charset=$charset";
+            $options = [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_DEFAULT_FETCH_MODE => \PDO::FETCH_ASSOC,
+                \PDO::ATTR_EMULATE_PREPARES => false,
+            ];
+            
+            $pdo = new \PDO($dsn, $username, $password, $options);
+            
+            // Create database if it doesn't exist
+            $dbname = Environment::get('DB_NAME', 'collection_manager');
+            $pdo->exec("CREATE DATABASE IF NOT EXISTS `$dbname` CHARACTER SET $charset COLLATE {$charset}_unicode_ci");
+            
+            // Connect to the specific database
+            $dsn = "mysql:host=$host;dbname=$dbname;charset=$charset";
+            $pdo = new \PDO($dsn, $username, $password, $options);
+            
+            // Create migrations table first
+            $sql = "
+                CREATE TABLE IF NOT EXISTS `database_migrations` (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    version INT NOT NULL,
+                    migration_name VARCHAR(255) NOT NULL,
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE KEY unique_version (version)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+            ";
+            $pdo->exec($sql);
+            
+            // Run all migrations to create tables
+            $migrations = self::getMigrations();
+            foreach ($migrations as $version => $migration) {
+                if ($version <= self::$currentVersion) {
+                    self::executeMigrationWithConnection($version, $migration, $pdo);
+                }
+            }
+            
+            error_log("Auto-setup completed successfully");
+            
+        } catch (\Exception $e) {
+            error_log("Auto-setup failed: " . $e->getMessage());
+            throw $e;
+        }
+    }
+    
+    /**
+     * Execute migration with provided connection
+     */
+    private static function executeMigrationWithConnection($version, $migration, $pdo) 
+    {
+        try {
+            // Check if migration already executed
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM database_migrations WHERE version = ?");
+            $stmt->execute([$version]);
+            $result = $stmt->fetch();
+            
+            if ($result['count'] > 0) {
+                return; // Migration already executed
+            }
+            
+            // Execute migration SQL
+            if (isset($migration['sql']) && is_array($migration['sql'])) {
+                foreach ($migration['sql'] as $sql) {
+                    $pdo->exec($sql);
+                }
+            }
+            
+            // Record migration
+            $stmt = $pdo->prepare("INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)");
+            $stmt->execute([$version, $migration['name']]);
+            
+        } catch (\Exception $e) {
+            error_log("Migration v$version failed: " . $e->getMessage());
+            throw $e;
+        }
+    }
+
+    /**
      * Safely add user_id column to collection_items table without data loss
      */
-    private static function safelyAddUserIdColumn($tableName) 
+    private static function safelyAddUserIdColumn($tableName)
     {
         try {
             // Check if table has data
