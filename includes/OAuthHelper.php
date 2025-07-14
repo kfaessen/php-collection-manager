@@ -197,8 +197,8 @@ class OAuthHelper
         $passwordHash = password_hash($randomPassword, PASSWORD_DEFAULT);
         
         $sql = "INSERT INTO `$usersTable` 
-                (username, email, password_hash, first_name, last_name, avatar_url, email_verified, registration_method, is_active) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)";
+                (username, email, password_hash, first_name, last_name, avatar_url, email_verified, email_verified_at, registration_method, is_active) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), ?, 1)";
         
         Database::query($sql, [
             $userData['username'],

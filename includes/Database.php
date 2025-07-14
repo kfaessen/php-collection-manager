@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 7; // Huidige database versie
+    private static $currentVersion = 9; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -616,6 +616,33 @@ class Database
                         (21, 'nl', 'Stille uren'),
                         (22, 'nl', 'Melding types')
                     "
+                ]
+            ],
+            
+            9 => [
+                'name' => 'Email verification system',
+                'sql' => [
+                    // Email verification tokens table
+                    "CREATE TABLE IF NOT EXISTS `email_verification_tokens` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        token VARCHAR(128) UNIQUE NOT NULL,
+                        email VARCHAR(255) NOT NULL,
+                        expires_at TIMESTAMP NOT NULL,
+                        verified_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        INDEX idx_token (token),
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add email verification columns to users table
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified_at` TIMESTAMP NULL AFTER `email_verified`",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `verification_reminder_sent` BOOLEAN DEFAULT FALSE AFTER `email_verified_at`",
+                    
+                    // Update existing users with email_verified = true to have verified_at timestamp
+                    "UPDATE `users` SET `email_verified_at` = `created_at` WHERE `email_verified` = 1 AND `email_verified_at` IS NULL"
                 ]
             ]
         ];

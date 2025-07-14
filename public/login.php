@@ -20,8 +20,31 @@ if (Authentication::isLoggedIn()) {
 
 $error = '';
 $requiresTOTP = false;
+$requiresVerification = false;
+$verificationUserId = null;
+$verificationEmail = '';
 $username = '';
 $password = '';
+
+// Handle resend verification email
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_verification'])) {
+    $userId = $_POST['user_id'] ?? '';
+    $email = $_POST['email'] ?? '';
+    
+    if (!empty($userId) && !empty($email)) {
+        $resendResult = EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
+        
+        if ($resendResult['success']) {
+            $error = ''; // Clear any previous error
+            echo '<div class="alert alert-success alert-dismissible fade show" role="alert">
+                    <i class="bi bi-check-circle"></i> Een nieuwe verificatie email is verzonden naar ' . htmlspecialchars($email) . '
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                  </div>';
+        } else {
+            $error = 'Fout bij verzenden verificatie email: ' . $resendResult['message'];
+        }
+    }
+}
 
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -56,6 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 if (isset($result['requires_totp']) && $result['requires_totp']) {
                     $requiresTOTP = true;
+                    $error = $result['message'];
+                } elseif (isset($result['requires_verification']) && $result['requires_verification']) {
+                    $requiresVerification = true;
+                    $verificationUserId = $result['user_id'] ?? null;
+                    $verificationEmail = $result['email'] ?? '';
                     $error = $result['message'];
                 } else {
                     $error = $result['message'];
@@ -250,10 +278,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
             <?php endif; ?>
             
+            <?php if ($requiresVerification): ?>
+                <div class="alert alert-warning" role="alert">
+                    <h5><i class="bi bi-envelope-exclamation"></i> Email Verificatie Vereist</h5>
+                    <p class="mb-3"><?= htmlspecialchars($error) ?></p>
+                    
+                    <p class="mb-3">Controleer je inbox (en spam folder) voor de verificatie email.</p>
+                    
+                    <?php if ($verificationUserId && $verificationEmail): ?>
+                        <form method="POST" class="d-inline">
+                            <input type="hidden" name="user_id" value="<?= htmlspecialchars($verificationUserId) ?>">
+                            <input type="hidden" name="email" value="<?= htmlspecialchars($verificationEmail) ?>">
+                            <button type="submit" name="resend_verification" class="btn btn-warning btn-sm">
+                                <i class="bi bi-envelope-arrow-up"></i> Nieuwe Verificatie Email Versturen
+                            </button>
+                        </form>
+                    <?php endif; ?>
+                    
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <strong>Tips:</strong><br>
+                            • Controleer je spam/ongewenste email folder<br>
+                            • De link is 24 uur geldig<br>
+                            • Neem contact op met beheerder als je geen email ontvangt
+                        </small>
+                    </div>
+                </div>
+                
+                <button type="button" class="btn btn-outline-secondary w-100" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Opnieuw Proberen
+                </button>
+                
+            <?php else: ?>
+            
             <button type="submit" class="btn btn-primary btn-login">
                 <i class="bi bi-box-arrow-in-right"></i> 
                 <?= $requiresTOTP ? 'Verifiëren' : 'Inloggen' ?>
             </button>
+            
+            <?php endif; ?>
         </form>
         
         <?php if (OAuthHelper::isEnabled() && !$requiresTOTP): ?>
