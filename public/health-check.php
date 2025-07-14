@@ -35,9 +35,9 @@ try {
 
     // Check if core files exist
     $coreFiles = [
-        '../includes/functions.php',
-        '../includes/Database.php',
-        '../includes/Environment.php'
+        __DIR__ . '/../includes/functions.php',
+        __DIR__ . '/../includes/Database.php',
+        __DIR__ . '/../includes/Environment.php'
     ];
 
     foreach ($coreFiles as $file) {
@@ -59,8 +59,8 @@ try {
     }
 
     // Try to load core functions
-    if (file_exists('../includes/functions.php')) {
-        require_once '../includes/functions.php';
+    if (file_exists(__DIR__ . '/../includes/functions.php')) {
+        require_once __DIR__ . '/../includes/functions.php';
         
         $healthData['checks']['functions_loaded'] = [
             'status' => 'ok',
@@ -117,8 +117,8 @@ try {
 
         // Check file permissions
         $permissionChecks = [
-            'uploads' => '../uploads/',
-            'uploads_covers' => '../uploads/covers/'
+            'uploads' => __DIR__ . '/../uploads/',
+            'uploads_covers' => __DIR__ . '/../uploads/covers/'
         ];
 
         $permissionErrors = [];
