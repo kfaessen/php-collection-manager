@@ -17,17 +17,15 @@ RewriteEngine On
     Require all denied
 </FilesMatch>
 
-# Protect includes directory
-<DirectoryMatch "includes">
-    Require all denied
-</DirectoryMatch>
+# Protect includes directory (OVH compatible)
+RewriteRule ^includes/ - [F,L]
 
-# Protect uploads from PHP execution
-<Directory "uploads">
-    php_flag engine off
-    RemoveHandler .php .phtml .php3 .php4 .php5 .phps
-    RemoveType .php .phtml .php3 .php4 .php5 .phps
-</Directory>
+# Protect uploads from PHP execution (OVH compatible)
+<FilesMatch "\.(php|phtml|php3|php4|php5|phps)$">
+    <If "%{REQUEST_URI} =~ m#^/uploads/#">
+        Require all denied
+    </If>
+</FilesMatch>
 
 # Security headers (OVH compatible)
 <IfModule mod_headers.c>
