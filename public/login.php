@@ -188,6 +188,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </div>
         <?php endif; ?>
         
+        <?php if (isset($_GET['error'])): ?>
+            <div class="alert alert-danger" role="alert">
+                <i class="bi bi-exclamation-triangle"></i> <?= htmlspecialchars($_GET['error']) ?>
+            </div>
+        <?php endif; ?>
+        
+        <?php if (isset($_GET['success'])): ?>
+            <div class="alert alert-success" role="alert">
+                <i class="bi bi-check-circle"></i> <?= htmlspecialchars($_GET['success']) ?>
+            </div>
+        <?php endif; ?>
+        
         <form method="POST" id="loginForm">
             <div class="form-group">
                 <label for="username" class="form-label">Gebruikersnaam of Email</label>
@@ -243,6 +255,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <?= $requiresTOTP ? 'Verifiëren' : 'Inloggen' ?>
             </button>
         </form>
+        
+        <?php if (OAuthHelper::isEnabled() && !$requiresTOTP): ?>
+            <div class="text-center my-4">
+                <div class="d-flex align-items-center">
+                    <hr class="flex-grow-1">
+                    <span class="mx-3 text-muted small">of log in met</span>
+                    <hr class="flex-grow-1">
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <?php if (OAuthHelper::isEnabled('google')): ?>
+                    <a href="oauth.php?action=login&provider=google" class="btn btn-outline-danger">
+                        <i class="bi bi-google"></i> Google
+                    </a>
+                <?php endif; ?>
+                
+                <?php if (OAuthHelper::isEnabled('facebook')): ?>
+                    <a href="oauth.php?action=login&provider=facebook" class="btn btn-outline-primary">
+                        <i class="bi bi-facebook"></i> Facebook
+                    </a>
+                <?php endif; ?>
+            </div>
+        <?php endif; ?>
         
         <div class="login-links">
             <small class="text-muted">

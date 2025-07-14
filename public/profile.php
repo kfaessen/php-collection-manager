@@ -111,6 +111,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Fout bij wijzigen wachtwoord: ' . $e->getMessage();
         }
     }
+    
+    if (isset($_POST['unlink_provider'])) {
+        try {
+            $provider = Utils::sanitize($_POST['unlink_provider']);
+            $result = OAuthHelper::unlinkSocialAccount($currentUser['id'], $provider);
+            if ($result) {
+                $feedback = ucfirst($provider) . ' account succesvol ontkoppeld';
+            } else {
+                $error = 'Fout bij ontkoppelen van account';
+            }
+        } catch (Exception $e) {
+            $error = 'Fout bij ontkoppelen account: ' . $e->getMessage();
+        }
+    }
 }
 ?>
 <!DOCTYPE html>
@@ -278,6 +292,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <?php endif; ?>
                     </div>
                 </div>
+                
+                <!-- Social Accounts -->
+                <?php if (OAuthHelper::isEnabled()): ?>
+                    <?php $socialAccounts = OAuthHelper::getUserSocialAccounts($currentUser['id']); ?>
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Gekoppelde accounts</h5>
+                        </div>
+                        <div class="card-body">
+                            <?php if (empty($socialAccounts)): ?>
+                                <p class="text-muted">Geen sociale accounts gekoppeld.</p>
+                            <?php else: ?>
+                                <ul class="list-group list-group-flush mb-3">
+                                    <?php foreach ($socialAccounts as $account): ?>
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>
+                                                    <?php if ($account['provider'] === 'google'): ?>
+                                                        <i class="bi bi-google text-danger"></i> Google
+                                                    <?php elseif ($account['provider'] === 'facebook'): ?>
+                                                        <i class="bi bi-facebook text-primary"></i> Facebook
+                                                    <?php else: ?>
+                                                        <?= ucfirst($account['provider']) ?>
+                                                    <?php endif; ?>
+                                                </strong>
+                                                <br><small class="text-muted"><?= htmlspecialchars($account['provider_email']) ?></small>
+                                            </div>
+                                            <form method="POST" style="display: inline;">
+                                                <input type="hidden" name="unlink_provider" value="<?= $account['provider'] ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-danger" 
+                                                        onclick="return confirm('Weet je zeker dat je dit account wilt ontkoppelen?')">
+                                                    <i class="bi bi-unlink"></i> Ontkoppelen
+                                                </button>
+                                            </form>
+                                        </li>
+                                    <?php endforeach; ?>
+                                </ul>
+                            <?php endif; ?>
+                            
+                            <div class="d-grid gap-2">
+                                <?php if (OAuthHelper::isEnabled('google')): ?>
+                                    <?php $hasGoogle = false; ?>
+                                    <?php foreach ($socialAccounts as $account): ?>
+                                        <?php if ($account['provider'] === 'google') $hasGoogle = true; ?>
+                                    <?php endforeach; ?>
+                                    <?php if (!$hasGoogle): ?>
+                                        <a href="oauth.php?action=login&provider=google" class="btn btn-sm btn-outline-danger">
+                                            <i class="bi bi-google"></i> Google koppelen
+                                        </a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                                
+                                <?php if (OAuthHelper::isEnabled('facebook')): ?>
+                                    <?php $hasFacebook = false; ?>
+                                    <?php foreach ($socialAccounts as $account): ?>
+                                        <?php if ($account['provider'] === 'facebook') $hasFacebook = true; ?>
+                                    <?php endforeach; ?>
+                                    <?php if (!$hasFacebook): ?>
+                                        <a href="oauth.php?action=login&provider=facebook" class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-facebook"></i> Facebook koppelen
+                                        </a>
+                                    <?php endif; ?>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
             </div>
         </div>
         

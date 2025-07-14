@@ -17,7 +17,9 @@
         "ext-curl": "*"
     },
     "suggest": {
-        "phpmailer/phpmailer": "^6.8 - Voor e-mail functionaliteit (optioneel)"
+        "phpmailer/phpmailer": "^6.8 - Voor e-mail functionaliteit (optioneel)",
+        "league/oauth2-google": "^4.0 - Voor Google OAuth login (optioneel)",
+        "league/oauth2-facebook": "^3.0 - Voor Facebook OAuth login (optioneel)"
     },
     "require-dev": {
         "phpunit/phpunit": "^9.0"

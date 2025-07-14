@@ -33,7 +33,17 @@ class Environment
             'SMTP_FROM_NAME' => 'Collectiebeheer',
             'TOTP_ISSUER' => 'Collectiebeheer',
             'TOTP_WINDOW' => 1,
-            'TOTP_BACKUP_CODES_COUNT' => 10
+            'TOTP_BACKUP_CODES_COUNT' => 10,
+            
+            // OAuth Configuration
+            'GOOGLE_CLIENT_ID' => '',
+            'GOOGLE_CLIENT_SECRET' => '',
+            'GOOGLE_REDIRECT_URI' => '',
+            'FACEBOOK_APP_ID' => '',
+            'FACEBOOK_APP_SECRET' => '',
+            'FACEBOOK_REDIRECT_URI' => '',
+            'OAUTH_STATE_LIFETIME' => 600, // 10 minutes
+            'OAUTH_ENABLED' => true
         ];
         
         // Load .env file if exists

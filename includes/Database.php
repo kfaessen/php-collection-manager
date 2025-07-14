@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 4; // Huidige database versie
+    private static $currentVersion = 5; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -275,6 +275,46 @@ class Database
                     
                     // Add index if it doesn't exist
                     "CREATE INDEX IF NOT EXISTS `idx_user_id` ON `collection_items` (`user_id`)"
+                ]
+            ],
+            5 => [
+                'name' => 'Add OAuth Social Login Support',
+                'sql' => [
+                    // Social logins table
+                    "CREATE TABLE IF NOT EXISTS `social_logins` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        provider VARCHAR(50) NOT NULL,
+                        provider_id VARCHAR(255) NOT NULL,
+                        provider_email VARCHAR(255),
+                        provider_name VARCHAR(255),
+                        provider_avatar VARCHAR(500),
+                        access_token TEXT,
+                        refresh_token TEXT,
+                        expires_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_user (provider, provider_id),
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_provider (provider),
+                        INDEX idx_provider_id (provider_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add OAuth state sessions table for security
+                    "CREATE TABLE IF NOT EXISTS `oauth_states` (
+                        id VARCHAR(128) PRIMARY KEY,
+                        provider VARCHAR(50) NOT NULL,
+                        state_data TEXT,
+                        expires_at TIMESTAMP NOT NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add optional OAuth columns to users table
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `avatar_url` VARCHAR(500) NULL",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `registration_method` ENUM('local', 'google', 'facebook') DEFAULT 'local'"
                 ]
             ]
         ];
