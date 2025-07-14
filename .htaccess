@@ -17,14 +17,17 @@ RewriteEngine On
     Require all denied
 </FilesMatch>
 
-# Protect includes directory (OVH compatible)
-RewriteRule ^includes/ - [F,L]
+# Protect includes directory
+<DirectoryMatch "includes">
+    Require all denied
+</DirectoryMatch>
 
-# Blokkeer PHP-bestanden in uploads (OVH compatible)
-<FilesMatch "^uploads/.*\.(php|php3|php4|php5|phtml)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
+# Protect uploads from PHP execution
+<Directory "uploads">
+    php_flag engine off
+    RemoveHandler .php .phtml .php3 .php4 .php5 .phps
+    RemoveType .php .phtml .php3 .php4 .php5 .phps
+</Directory>
 
 # Security headers (OVH compatible)
 <IfModule mod_headers.c>
@@ -218,8 +221,8 @@ ErrorDocument 503 /public/error.php?code=503
 # OVH specific PHP version selection (if needed)
 # AddHandler application/x-httpd-php84 .php
 
-# Prevent execution of uploaded files
-<FilesMatch "\.(php|php3|php4|php5|phtml|pl|py|jsp|asp|sh|cgi)$">
+# Prevent execution of uploaded files (additional protection)
+<FilesMatch "\.(pl|py|jsp|asp|sh|cgi)$">
     <If "%{REQUEST_URI} =~ m#^/uploads/#">
         Require all denied
     </If>
