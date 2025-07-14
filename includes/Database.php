@@ -175,8 +175,8 @@ class Database
                         group_id INT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_user_group (user_id, group_id),
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Group permissions table
@@ -186,8 +186,8 @@ class Database
                         permission_id INT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_group_permission (group_id, permission_id),
-                        FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE,
-                        FOREIGN KEY (permission_id) REFERENCES permissions(id) ON DELETE CASCADE
+                        FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (permission_id) REFERENCES `permissions`(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Sessions table
@@ -198,7 +198,7 @@ class Database
                         user_agent TEXT,
                         payload TEXT NOT NULL,
                         last_activity INT NOT NULL,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE SET NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Shared links table
@@ -209,7 +209,7 @@ class Database
                         token VARCHAR(64) UNIQUE NOT NULL,
                         expires_at TIMESTAMP NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_token (token)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
                 ]
@@ -236,7 +236,7 @@ class Database
                         barcode VARCHAR(50),
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_user_id (user_id),
                         INDEX idx_type (type),
                         INDEX idx_category (category),
@@ -295,7 +295,7 @@ class Database
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_provider_user (provider, provider_id),
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_user_id (user_id),
                         INDEX idx_provider (provider),
                         INDEX idx_provider_id (provider_id)
@@ -513,7 +513,7 @@ class Database
                         is_active BOOLEAN DEFAULT 1,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_user_active (user_id, is_active),
                         INDEX idx_endpoint (endpoint(255))
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
@@ -527,7 +527,7 @@ class Database
                         status ENUM('sent', 'failed', 'error') NOT NULL,
                         error_message TEXT,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_user_date (user_id, created_at),
                         INDEX idx_status_date (status, created_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
@@ -544,7 +544,7 @@ class Database
                         sent BOOLEAN DEFAULT 0,
                         sent_at TIMESTAMP NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
                         INDEX idx_send_at (send_at, sent),
                         INDEX idx_user_scheduled (user_id, send_at)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
@@ -562,7 +562,7 @@ class Database
                         quiet_hours_end TIME DEFAULT '08:00:00',
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Insert notification translation keys
@@ -643,6 +643,21 @@ class Database
                     
                     // Update existing users with email_verified = true to have verified_at timestamp
                     "UPDATE `users` SET `email_verified_at` = `created_at` WHERE `email_verified` = 1 AND `email_verified_at` IS NULL"
+                ]
+            ],
+            
+            10 => [
+                'name' => 'Add system provider for API tokens',
+                'sql' => [
+                    // Insert system provider for storing API tokens
+                    "INSERT IGNORE INTO `api_providers` (id, name, description, base_url, requires_auth, rate_limit_per_minute, is_active) VALUES 
+                        (0, 'System', 'System provider for storing API tokens and system data', '', 0, 0, 1)",
+                    
+                    // Update api_cache table to allow provider_id 0 for system tokens
+                    "ALTER TABLE `api_cache` MODIFY COLUMN `provider_id` INT NOT NULL DEFAULT 0",
+                    
+                    // Add comment to clarify the purpose of provider_id 0
+                    "ALTER TABLE `api_cache` COMMENT = 'provider_id 0 is reserved for system tokens and data'"
                 ]
             ]
         ];

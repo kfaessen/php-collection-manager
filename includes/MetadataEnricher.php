@@ -237,11 +237,10 @@ class MetadataEnricher
      */
     private static function getIGDBAccessToken() 
     {
-        $token = Environment::get('IGDB_ACCESS_TOKEN');
-        
-        // Check if token is still valid (simplified - in production you'd check expiry)
-        if ($token) {
-            return $token;
+        // First try to get from database cache
+        $cachedToken = self::getCachedToken('IGDB_ACCESS_TOKEN');
+        if ($cachedToken && !self::isTokenExpired($cachedToken)) {
+            return $cachedToken['token'];
         }
         
         // Request new token
@@ -264,8 +263,12 @@ class MetadataEnricher
             return null;
         }
         
-        // Save token (in production, you'd also save expiry time)
-        Environment::set('IGDB_ACCESS_TOKEN', $data['access_token']);
+        // Calculate expiry time (IGDB tokens typically expire in 60 days)
+        $expiresIn = $data['expires_in'] ?? (60 * 24 * 60 * 60); // Default to 60 days
+        $expiresAt = date('Y-m-d H:i:s', time() + $expiresIn);
+        
+        // Save token to database cache
+        self::saveCachedToken('IGDB_ACCESS_TOKEN', $data['access_token'], $expiresAt);
         
         return $data['access_token'];
     }
@@ -601,6 +604,70 @@ class MetadataEnricher
         $title = trim($title);
         
         return $title;
+    }
+    
+    /**
+     * Get cached token from database
+     */
+    private static function getCachedToken($tokenKey) 
+    {
+        try {
+            $cacheTable = Environment::getTableName('api_cache');
+            $sql = "SELECT response_data, expires_at FROM `$cacheTable` WHERE cache_key = ? AND expires_at > NOW() LIMIT 1";
+            $stmt = Database::query($sql, [$tokenKey]);
+            $result = $stmt->fetch();
+            
+            if ($result) {
+                $tokenData = json_decode($result['response_data'], true);
+                return [
+                    'token' => $tokenData['token'] ?? null,
+                    'expires_at' => $result['expires_at']
+                ];
+            }
+        } catch (\Exception $e) {
+            error_log("Error getting cached token: " . $e->getMessage());
+        }
+        
+        return null;
+    }
+    
+    /**
+     * Save token to database cache
+     */
+    private static function saveCachedToken($tokenKey, $token, $expiresAt) 
+    {
+        try {
+            $cacheTable = Environment::getTableName('api_cache');
+            $tokenData = json_encode(['token' => $token]);
+            
+            $sql = "INSERT INTO `$cacheTable` (provider_id, cache_key, response_data, expires_at) 
+                    VALUES (?, ?, ?, ?) 
+                    ON DUPLICATE KEY UPDATE 
+                    response_data = VALUES(response_data), 
+                    expires_at = VALUES(expires_at)";
+            
+            // Use provider_id 0 for system tokens (System provider)
+            Database::query($sql, [0, $tokenKey, $tokenData, $expiresAt]);
+            
+        } catch (\Exception $e) {
+            error_log("Error saving cached token: " . $e->getMessage());
+        }
+    }
+    
+    /**
+     * Check if token is expired
+     */
+    private static function isTokenExpired($tokenData) 
+    {
+        if (!$tokenData || !isset($tokenData['expires_at'])) {
+            return true;
+        }
+        
+        $expiresAt = strtotime($tokenData['expires_at']);
+        $now = time();
+        
+        // Consider token expired if it expires within the next 5 minutes
+        return $expiresAt <= ($now + 300);
     }
     
     // Additional helper methods would be implemented here for:
