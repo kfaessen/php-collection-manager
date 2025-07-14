@@ -644,6 +644,21 @@ class Database
                     // Update existing users with email_verified = true to have verified_at timestamp
                     "UPDATE `users` SET `email_verified_at` = `created_at` WHERE `email_verified` = 1 AND `email_verified_at` IS NULL"
                 ]
+            ],
+            
+            10 => [
+                'name' => 'Add system provider for API tokens',
+                'sql' => [
+                    // Insert system provider for storing API tokens
+                    "INSERT IGNORE INTO `api_providers` (id, name, description, base_url, requires_auth, rate_limit_per_minute, is_active) VALUES 
+                        (0, 'System', 'System provider for storing API tokens and system data', '', 0, 0, 1)",
+                    
+                    // Update api_cache table to allow provider_id 0 for system tokens
+                    "ALTER TABLE `api_cache` MODIFY COLUMN `provider_id` INT NOT NULL DEFAULT 0",
+                    
+                    // Add comment to clarify the purpose of provider_id 0
+                    "ALTER TABLE `api_cache` COMMENT = 'provider_id 0 is reserved for system tokens and data'"
+                ]
             ]
         ];
     }
