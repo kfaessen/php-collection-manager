@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_verification']
     $email = $_POST['email'] ?? '';
     
     if (!empty($userId) && !empty($email)) {
-        $resendResult = EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
+        $resendResult = \CollectionManager\EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
         
         if ($resendResult['success']) {
             $error = ''; // Clear any previous error

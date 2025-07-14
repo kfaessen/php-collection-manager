@@ -45,6 +45,12 @@ deployment.log
 backups/
 maintenance.php
 
+# Test and Debug Files
+test_*.php
+debug_*.php
+*_test.php
+*_debug.php
+
 # Security Files
 .htaccess.backup
 ssh_keys/

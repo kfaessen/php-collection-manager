@@ -30,7 +30,7 @@ try {
     $userStats = UserManager::getUserStats();
     $allGroups = UserManager::getAllGroups();
     $allPermissions = UserManager::getAllPermissions();
-    $verificationStats = EmailVerificationHelper::getVerificationStats();
+    $verificationStats = \CollectionManager\EmailVerificationHelper::getVerificationStats();
 } catch (Exception $e) {
     $userStats = ['total_users' => 0, 'active_users' => 0, 'new_last_month' => 0];
     $allGroups = [];
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (isset($_POST['verify_user'])) {
         try {
             $userId = (int)$_POST['user_id'];
-            $result = EmailVerificationHelper::manuallyVerifyUser($userId);
+            $result = \CollectionManager\EmailVerificationHelper::manuallyVerifyUser($userId);
             $feedback = $result['message'];
         } catch (Exception $e) {
             $feedback = 'Fout bij verifiëren gebruiker: ' . $e->getMessage();
@@ -95,7 +95,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $userId = (int)$_POST['user_id'];
             $email = Utils::sanitize($_POST['email']);
-            $result = EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
+            $result = \CollectionManager\EmailVerificationHelper::sendVerificationEmail($userId, $email, true);
             $feedback = $result['message'];
         } catch (Exception $e) {
             $feedback = 'Fout bij verzenden verificatie email: ' . $e->getMessage();
@@ -104,7 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (isset($_POST['send_verification_reminders'])) {
         try {
-            $result = EmailVerificationHelper::sendVerificationReminders();
+            $result = \CollectionManager\EmailVerificationHelper::sendVerificationReminders();
             $feedback = "Verificatie herinneringen verzonden: {$result['sent']} geslaagd, {$result['failed']} mislukt van {$result['total']} gebruikers.";
         } catch (Exception $e) {
             $feedback = 'Fout bij verzenden herinneringen: ' . $e->getMessage();
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     if (isset($_POST['cleanup_expired_tokens'])) {
         try {
-            EmailVerificationHelper::cleanupExpiredTokens();
+            \CollectionManager\EmailVerificationHelper::cleanupExpiredTokens();
             $feedback = 'Verlopen verificatie tokens zijn opgeschoond.';
         } catch (Exception $e) {
             $feedback = 'Fout bij opschonen tokens: ' . $e->getMessage();
