@@ -930,8 +930,8 @@ class Database
     public static function needsSetup() 
     {
         try {
-            $currentVersion = self::getCurrentDatabaseVersion();
-            return $currentVersion < self::$currentVersion;
+            $currentVersion = self::getCurrentVersion();
+            return $currentVersion < self::getTargetVersion();
         } catch (\Exception $e) {
             return true;
         }
@@ -941,13 +941,6 @@ class Database
      * Get current database version (public method)
      */
     public static function getCurrentVersion() {
-        return self::$currentVersion;
-    }
-    
-    /**
-     * Get installed database version
-     */
-    public static function getInstalledVersion() {
         try {
             if (!self::$initialized) {
                 self::init();
@@ -956,6 +949,20 @@ class Database
         } catch (\Exception $e) {
             return 0;
         }
+    }
+    
+    /**
+     * Get target database version (the version the code expects)
+     */
+    public static function getTargetVersion() {
+        return self::$currentVersion;
+    }
+    
+    /**
+     * Get installed database version (alias for getCurrentVersion for clarity)
+     */
+    public static function getInstalledVersion() {
+        return self::getCurrentVersion();
     }
 
     /**

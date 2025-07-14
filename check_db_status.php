@@ -17,14 +17,14 @@ try {
     echo "✓ Functions loaded successfully\n";
     
     // Get version information
-    $currentVersion = Database::getCurrentVersion();
-    $installedVersion = Database::getInstalledVersion();
+    $installedVersion = Database::getCurrentVersion();
+    $targetVersion = Database::getTargetVersion();
     
     echo "\nVersion Information:\n";
-    echo "- Current version: $currentVersion\n";
     echo "- Installed version: $installedVersion\n";
+    echo "- Target version: $targetVersion\n";
     
-    if ($installedVersion >= $currentVersion) {
+    if ($installedVersion >= $targetVersion) {
         echo "✓ Database is up to date\n";
     } else {
         echo "⚠ Database needs migration (run run_migrations.php)\n";
@@ -106,7 +106,7 @@ try {
     
     // Recommendations
     echo "\nRecommendations:\n";
-    if ($installedVersion < $currentVersion) {
+    if ($installedVersion < $targetVersion) {
         echo "⚠ Run 'php run_migrations.php' to update database\n";
     }
     
@@ -122,7 +122,7 @@ try {
         echo "⚠ No permissions found - run 'php run_migrations.php' to create default permissions\n";
     }
     
-    if ($installedVersion >= $currentVersion && $userCount > 0 && $groupCount > 0 && $permissionCount > 0) {
+    if ($installedVersion >= $targetVersion && $userCount > 0 && $groupCount > 0 && $permissionCount > 0) {
         echo "✓ Database is ready for use\n";
     }
     
