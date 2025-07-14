@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 9; // Huidige database versie
+    private static $currentVersion = 10; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -101,7 +101,7 @@ class Database
     private static function createMigrationsTable() 
     {
         $sql = "
-            CREATE TABLE IF NOT EXISTS `database_migrations` (
+            CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('database_migrations') . "` (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 version INT NOT NULL,
                 migration_name VARCHAR(255) NOT NULL,
@@ -119,7 +119,7 @@ class Database
     private static function getCurrentDatabaseVersion() 
     {
         try {
-            $sql = "SELECT MAX(version) as current_version FROM database_migrations";
+            $sql = "SELECT MAX(version) as current_version FROM " . Environment::getTableName('database_migrations');
             $stmt = self::query($sql);
             $result = $stmt->fetch();
             return $result['current_version'] ?? 0;
@@ -153,7 +153,7 @@ class Database
                 'name' => 'Initial database setup',
                 'sql' => [
                     // Users table
-                    "CREATE TABLE IF NOT EXISTS `users` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('users') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         username VARCHAR(50) UNIQUE NOT NULL,
                         email VARCHAR(255) UNIQUE NOT NULL,
@@ -167,15 +167,20 @@ class Database
                         totp_secret VARCHAR(32) NULL,
                         totp_enabled BOOLEAN DEFAULT FALSE,
                         totp_backup_codes TEXT NULL,
+                        email_verified BOOLEAN DEFAULT FALSE,
+                        email_verification_token VARCHAR(64) NULL,
+                        email_verification_expires TIMESTAMP NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         INDEX idx_username (username),
                         INDEX idx_email (email),
-                        INDEX idx_active (is_active)
+                        INDEX idx_active (is_active),
+                        INDEX idx_email_verified (email_verified),
+                        INDEX idx_email_verification_token (email_verification_token)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Groups table
-                    "CREATE TABLE IF NOT EXISTS `groups` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('groups') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         name VARCHAR(50) UNIQUE NOT NULL,
                         description TEXT,
@@ -184,7 +189,7 @@ class Database
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Permissions table
-                    "CREATE TABLE IF NOT EXISTS `permissions` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('permissions') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         name VARCHAR(50) UNIQUE NOT NULL,
                         description TEXT,
@@ -192,47 +197,47 @@ class Database
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // User groups table
-                    "CREATE TABLE IF NOT EXISTS `user_groups` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('user_groups') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NOT NULL,
                         group_id INT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_user_group (user_id, group_id),
-                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
-                        FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE
+                        FOREIGN KEY (user_id) REFERENCES `" . Environment::getTableName('users') . "`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (group_id) REFERENCES `" . Environment::getTableName('groups') . "`(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Group permissions table
-                    "CREATE TABLE IF NOT EXISTS `group_permissions` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('group_permissions') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         group_id INT NOT NULL,
                         permission_id INT NOT NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_group_permission (group_id, permission_id),
-                        FOREIGN KEY (group_id) REFERENCES `groups`(id) ON DELETE CASCADE,
-                        FOREIGN KEY (permission_id) REFERENCES `permissions`(id) ON DELETE CASCADE
+                        FOREIGN KEY (group_id) REFERENCES `" . Environment::getTableName('groups') . "`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (permission_id) REFERENCES `" . Environment::getTableName('permissions') . "`(id) ON DELETE CASCADE
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Sessions table
-                    "CREATE TABLE IF NOT EXISTS `sessions` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('sessions') . "` (
                         id VARCHAR(128) PRIMARY KEY,
                         user_id INT NULL,
                         ip_address VARCHAR(45),
                         user_agent TEXT,
                         payload TEXT NOT NULL,
                         last_activity INT NOT NULL,
-                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE SET NULL
+                        FOREIGN KEY (user_id) REFERENCES `" . Environment::getTableName('users') . "`(id) ON DELETE SET NULL
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Shared links table
-                    "CREATE TABLE IF NOT EXISTS `shared_links` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('shared_links') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NOT NULL,
                         item_id INT NOT NULL,
                         token VARCHAR(64) UNIQUE NOT NULL,
                         expires_at TIMESTAMP NULL,
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `" . Environment::getTableName('users') . "`(id) ON DELETE CASCADE,
                         INDEX idx_token (token)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
                 ]
@@ -241,7 +246,7 @@ class Database
                 'name' => 'Add collection_items table',
                 'sql' => [
                     // Collection items table
-                    "CREATE TABLE IF NOT EXISTS `collection_items` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('collection_items') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NOT NULL,
                         title VARCHAR(255) NOT NULL,
@@ -259,7 +264,7 @@ class Database
                         barcode VARCHAR(50),
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `" . Environment::getTableName('users') . "`(id) ON DELETE CASCADE,
                         INDEX idx_user_id (user_id),
                         INDEX idx_type (type),
                         INDEX idx_category (category),
@@ -271,40 +276,40 @@ class Database
                 'name' => 'Safely update collection_items table structure',
                 'sql' => [
                     // Add missing columns safely if they don't exist
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `condition_rating` INT DEFAULT 5",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `purchase_date` DATE NULL",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `purchase_price` DECIMAL(10,2) NULL",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `current_value` DECIMAL(10,2) NULL",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `location` VARCHAR(255)",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `notes` TEXT",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `cover_image` VARCHAR(255)",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `barcode` VARCHAR(50)",
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `condition_rating` INT DEFAULT 5",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `purchase_date` DATE NULL",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `purchase_price` DECIMAL(10,2) NULL",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `current_value` DECIMAL(10,2) NULL",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `location` VARCHAR(255)",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `notes` TEXT",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `cover_image` VARCHAR(255)",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `barcode` VARCHAR(50)",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
                     
                     // Add indexes if they don't exist
-                    "CREATE INDEX IF NOT EXISTS `idx_type` ON `collection_items` (`type`)",
-                    "CREATE INDEX IF NOT EXISTS `idx_category` ON `collection_items` (`category`)",
-                    "CREATE INDEX IF NOT EXISTS `idx_barcode` ON `collection_items` (`barcode`)"
+                    "CREATE INDEX IF NOT EXISTS `idx_type` ON `" . Environment::getTableName('collection_items') . "` (`type`)",
+                    "CREATE INDEX IF NOT EXISTS `idx_category` ON `" . Environment::getTableName('collection_items') . "` (`category`)",
+                    "CREATE INDEX IF NOT EXISTS `idx_barcode` ON `" . Environment::getTableName('collection_items') . "` (`barcode`)"
                 ]
             ],
             4 => [
                 'name' => 'Safely add user_id column to collection_items table',
                 'sql' => [
                     // Add user_id column with default value
-                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `user_id` INT NOT NULL DEFAULT 1",
+                    "ALTER TABLE `" . Environment::getTableName('collection_items') . "` ADD COLUMN IF NOT EXISTS `user_id` INT NOT NULL DEFAULT 1",
                     
                     // Update all existing records to use the default user (admin)
-                    "UPDATE `collection_items` SET user_id = 1 WHERE user_id = 0",
+                    "UPDATE `" . Environment::getTableName('collection_items') . "` SET user_id = 1 WHERE user_id = 0",
                     
                     // Add index if it doesn't exist
-                    "CREATE INDEX IF NOT EXISTS `idx_user_id` ON `collection_items` (`user_id`)"
+                    "CREATE INDEX IF NOT EXISTS `idx_user_id` ON `" . Environment::getTableName('collection_items') . "` (`user_id`)"
                 ]
             ],
             5 => [
                 'name' => 'Add OAuth Social Login Support',
                 'sql' => [
                     // Social logins table
-                    "CREATE TABLE IF NOT EXISTS `social_logins` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('social_logins') . "` (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         user_id INT NOT NULL,
                         provider VARCHAR(50) NOT NULL,
@@ -318,14 +323,14 @@ class Database
                         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         UNIQUE KEY unique_provider_user (provider, provider_id),
-                        FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE,
+                        FOREIGN KEY (user_id) REFERENCES `" . Environment::getTableName('users') . "`(id) ON DELETE CASCADE,
                         INDEX idx_user_id (user_id),
                         INDEX idx_provider (provider),
                         INDEX idx_provider_id (provider_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Add OAuth state sessions table for security
-                    "CREATE TABLE IF NOT EXISTS `oauth_states` (
+                    "CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('oauth_states') . "` (
                         id VARCHAR(128) PRIMARY KEY,
                         provider VARCHAR(50) NOT NULL,
                         state_data TEXT,
@@ -335,9 +340,9 @@ class Database
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Add optional OAuth columns to users table
-                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `avatar_url` VARCHAR(500) NULL",
-                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` BOOLEAN DEFAULT FALSE",
-                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `registration_method` ENUM('local', 'google', 'facebook') DEFAULT 'local'"
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `avatar_url` VARCHAR(500) NULL",
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `email_verified` BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `registration_method` ENUM('local', 'google', 'facebook') DEFAULT 'local'"
                 ]
             ],
             6 => [
@@ -1108,7 +1113,7 @@ class Database
             
             // Create migrations table first
             $sql = "
-                CREATE TABLE IF NOT EXISTS `database_migrations` (
+                CREATE TABLE IF NOT EXISTS `" . Environment::getTableName('database_migrations') . "` (
                     id INT AUTO_INCREMENT PRIMARY KEY,
                     version INT NOT NULL,
                     migration_name VARCHAR(255) NOT NULL,
@@ -1141,7 +1146,7 @@ class Database
     {
         try {
             // Check if migration already executed
-            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM database_migrations WHERE version = ?");
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM " . Environment::getTableName('database_migrations') . " WHERE version = ?");
             $stmt->execute([$version]);
             $result = $stmt->fetch();
             
@@ -1157,7 +1162,7 @@ class Database
             }
             
             // Record migration
-            $stmt = $pdo->prepare("INSERT INTO database_migrations (version, migration_name) VALUES (?, ?)");
+            $stmt = $pdo->prepare("INSERT INTO " . Environment::getTableName('database_migrations') . " (version, migration_name) VALUES (?, ?)");
             $stmt->execute([$version, $migration['name']]);
             
         } catch (\Exception $e) {
