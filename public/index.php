@@ -9,6 +9,7 @@ ini_set('display_errors', 1);
 
 // Include dependencies
 require_once '../includes/functions.php';
+require_once '../includes/components/LanguageSwitcher.php';
 
 // Check if setup is needed
 if (Database::needsSetup()) {
@@ -177,7 +178,7 @@ function handleAjaxRequest()
 }
 ?>
 <!DOCTYPE html>
-<html lang="nl">
+<html lang="<?= I18nHelper::getCurrentLanguage() ?>" dir="<?= I18nHelper::getDirection() ?>"
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -219,6 +220,13 @@ function handleAjaxRequest()
                         <button class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addItemModal">
                             <i class="bi bi-plus-lg"></i> Item Toevoegen
                         </button>
+                    <?php endif; ?>
+                    
+                    <!-- Language Switcher -->
+                    <?php if (I18nHelper::isEnabled()): ?>
+                        <div class="me-2">
+                            <?= CollectionManager\LanguageSwitcher::render('dropdown', true, false) ?>
+                        </div>
                     <?php endif; ?>
                     
                     <div class="dropdown">

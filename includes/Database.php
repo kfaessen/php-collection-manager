@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 5; // Huidige database versie
+    private static $currentVersion = 6; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -315,6 +315,66 @@ class Database
                     "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `avatar_url` VARCHAR(500) NULL",
                     "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `email_verified` BOOLEAN DEFAULT FALSE",
                     "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `registration_method` ENUM('local', 'google', 'facebook') DEFAULT 'local'"
+                ]
+            ],
+            6 => [
+                'name' => 'Add Internationalization (i18n) Support',
+                'sql' => [
+                    // Languages table
+                    "CREATE TABLE IF NOT EXISTS `languages` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        code VARCHAR(10) UNIQUE NOT NULL,
+                        name VARCHAR(100) NOT NULL,
+                        native_name VARCHAR(100) NOT NULL,
+                        is_rtl BOOLEAN DEFAULT FALSE,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        sort_order INT DEFAULT 0,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_code (code),
+                        INDEX idx_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Translation keys table
+                    "CREATE TABLE IF NOT EXISTS `translation_keys` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        key_name VARCHAR(255) UNIQUE NOT NULL,
+                        description TEXT,
+                        category VARCHAR(100) DEFAULT 'general',
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_key_name (key_name),
+                        INDEX idx_category (category)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Translations table
+                    "CREATE TABLE IF NOT EXISTS `translations` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        key_id INT NOT NULL,
+                        language_code VARCHAR(10) NOT NULL,
+                        translation TEXT NOT NULL,
+                        is_completed BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_key_language (key_id, language_code),
+                        FOREIGN KEY (key_id) REFERENCES translation_keys(id) ON DELETE CASCADE,
+                        FOREIGN KEY (language_code) REFERENCES languages(code) ON DELETE CASCADE,
+                        INDEX idx_language (language_code),
+                        INDEX idx_completed (is_completed)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add user language preference
+                    "ALTER TABLE `users` ADD COLUMN IF NOT EXISTS `preferred_language` VARCHAR(10) DEFAULT 'nl'",
+                    
+                    // Insert default languages
+                    "INSERT IGNORE INTO `languages` (code, name, native_name, is_rtl, is_active, sort_order) VALUES 
+                        ('nl', 'Dutch', 'Nederlands', 0, 1, 1),
+                        ('en', 'English', 'English', 0, 1, 2),
+                        ('de', 'German', 'Deutsch', 0, 0, 3),
+                        ('fr', 'French', 'Français', 0, 0, 4),
+                        ('es', 'Spanish', 'Español', 0, 0, 5),
+                        ('ar', 'Arabic', 'العربية', 1, 0, 6),
+                        ('he', 'Hebrew', 'עברית', 1, 0, 7)"
                 ]
             ]
         ];

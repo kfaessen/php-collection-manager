@@ -43,7 +43,16 @@ class Environment
             'FACEBOOK_APP_SECRET' => '',
             'FACEBOOK_REDIRECT_URI' => '',
             'OAUTH_STATE_LIFETIME' => 600, // 10 minutes
-            'OAUTH_ENABLED' => true
+            'OAUTH_ENABLED' => true,
+            
+            // Internationalization Configuration
+            'DEFAULT_LANGUAGE' => 'nl',
+            'FALLBACK_LANGUAGE' => 'en',
+            'I18N_ENABLED' => true,
+            'AUTO_DETECT_LANGUAGE' => true,
+            'TRANSLATION_CACHE_ENABLED' => true,
+            'TRANSLATION_CACHE_LIFETIME' => 3600, // 1 hour
+            'SUPPORTED_LANGUAGES' => ['nl', 'en']
         ];
         
         // Load .env file if exists
