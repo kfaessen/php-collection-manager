@@ -178,7 +178,7 @@ self.addEventListener('push', function(event) {
 ### Push Subscription Management
 ```javascript
 // Subscribe to push notifications
-async function subscribeToush() {
+async function subscribeToPush() {
     const registration = await navigator.serviceWorker.ready;
     const subscription = await registration.pushManager.subscribe({
         userVisibleOnly: true,
@@ -422,7 +422,7 @@ VAPID_PRIVATE_KEY=generated_private_key
 // Test notification sending
 async function testNotifications() {
     // Test subscription
-    await subscribeToush();
+    await subscribeToPush();
     
     // Test notification delivery
     await sendTestNotification();

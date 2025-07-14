@@ -223,7 +223,7 @@ function handleTestNotification($userId) {
  */
 function handleGetPreferences($userId) {
     try {
-        $db = Database::getInstance();
+        $db = Database::getConnection();
         $stmt = $db->prepare("
             SELECT * FROM notification_preferences 
             WHERE user_id = ?
@@ -262,7 +262,7 @@ function handleUpdatePreferences($userId) {
     }
     
     try {
-        $db = Database::getInstance();
+        $db = Database::getConnection();
         $prefs = $input['preferences'];
         
         $stmt = $db->prepare("
@@ -393,7 +393,7 @@ function handleGetStats($userId = null) {
  */
 function createDefaultNotificationPreferences($userId) {
     try {
-        $db = Database::getInstance();
+        $db = Database::getConnection();
         $stmt = $db->prepare("
             INSERT IGNORE INTO notification_preferences 
             (user_id, item_added, item_updated, collection_shared, reminders, marketing)

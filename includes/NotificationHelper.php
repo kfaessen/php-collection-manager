@@ -51,7 +51,7 @@ class NotificationHelper {
      */
     public static function subscribe($userId, $endpoint, $keys, $userAgent = null) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             
             // Validate subscription data
             if (empty($endpoint) || empty($keys['p256dh']) || empty($keys['auth'])) {
@@ -108,7 +108,7 @@ class NotificationHelper {
      */
     public static function unsubscribe($userId, $endpoint = null) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             
             if ($endpoint) {
                 // Remove specific subscription
@@ -139,7 +139,7 @@ class NotificationHelper {
      */
     public static function getUserSubscriptions($userId) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 SELECT * FROM push_subscriptions 
                 WHERE user_id = ? AND is_active = 1
@@ -196,7 +196,7 @@ class NotificationHelper {
      */
     public static function sendToAll($title, $body, $data = [], $options = []) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 SELECT * FROM push_subscriptions 
                 WHERE is_active = 1
@@ -314,7 +314,7 @@ class NotificationHelper {
      */
     private static function removeSubscription($subscriptionId) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 UPDATE push_subscriptions 
                 SET is_active = 0, updated_at = NOW()
@@ -332,7 +332,7 @@ class NotificationHelper {
      */
     private static function logNotification($userId, $title, $body, $status, $error = null) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 INSERT INTO notification_logs 
                 (user_id, title, body, status, error_message, created_at)
@@ -350,7 +350,7 @@ class NotificationHelper {
      */
     public static function getStats($userId = null, $days = 30) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             
             $whereClause = $userId ? "WHERE user_id = ?" : "";
             $params = $userId ? [$userId, $days] : [$days];
@@ -381,7 +381,7 @@ class NotificationHelper {
      */
     public static function cleanupLogs($days = 90) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 DELETE FROM notification_logs 
                 WHERE created_at < DATE_SUB(NOW(), INTERVAL ? DAY)
@@ -463,7 +463,7 @@ class NotificationHelper {
      */
     public static function scheduleNotification($userId, $title, $body, $sendAt, $data = [], $options = []) {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 INSERT INTO scheduled_notifications 
                 (user_id, title, body, data, options, send_at, created_at)
@@ -491,7 +491,7 @@ class NotificationHelper {
      */
     public static function processScheduledNotifications() {
         try {
-            $db = Database::getInstance();
+            $db = Database::getConnection();
             $stmt = $db->prepare("
                 SELECT * FROM scheduled_notifications 
                 WHERE send_at <= NOW() AND sent = 0

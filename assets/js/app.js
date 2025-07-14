@@ -1427,7 +1427,7 @@ async function togglePushNotifications() {
             await unsubscribeFromPush();
         } else {
             // Subscribe
-            await subscribeToush();
+            await subscribeToPush();
         }
     } catch (error) {
         console.error('Error toggling push notifications:', error);
@@ -1438,7 +1438,7 @@ async function togglePushNotifications() {
 /**
  * Subscribe to push notifications
  */
-async function subscribeToush() {
+async function subscribeToPush() {
     try {
         // Request permission
         const permission = await Notification.requestPermission();
