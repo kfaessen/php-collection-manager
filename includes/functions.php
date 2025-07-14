@@ -61,4 +61,4 @@ I18nHelper::init();
 MetadataEnricher::init(); 
 
 // Initialiseer NotificationHelper na alle class_aliases
-NotificationHelper::init(); 
+\CollectionManager\NotificationHelper::init(); 

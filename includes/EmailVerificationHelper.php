@@ -140,8 +140,8 @@ class EmailVerificationHelper {
                 $connection->commit();
                 
                 // Send welcome notification if available
-                if (class_exists('NotificationHelper') && NotificationHelper::isAvailable()) {
-                    NotificationHelper::sendToUser(
+                if (class_exists('\CollectionManager\NotificationHelper') && \CollectionManager\NotificationHelper::isAvailable()) {
+                    \CollectionManager\NotificationHelper::sendToUser(
                         $tokenData['user_id'],
                         'Email geverifieerd!',
                         'Je email adres is succesvol bevestigd. Welkom bij Collectiebeheer!',

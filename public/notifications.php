@@ -109,7 +109,7 @@ try {
  * Get VAPID public key
  */
 function handleGetVapidKey() {
-    $publicKey = NotificationHelper::getPublicKey();
+    $publicKey = \CollectionManager\NotificationHelper::getPublicKey();
     
     if ($publicKey) {
         Utils::jsonResponse([
@@ -146,7 +146,7 @@ function handleSubscribe($userId) {
         return;
     }
     
-    $success = NotificationHelper::subscribe(
+    $success = \CollectionManager\NotificationHelper::subscribe(
         $userId,
         $subscription['endpoint'],
         $subscription['keys'],
@@ -176,7 +176,7 @@ function handleUnsubscribe($userId) {
     $input = json_decode(file_get_contents('php://input'), true);
     $endpoint = $input['endpoint'] ?? null;
     
-    $success = NotificationHelper::unsubscribe($userId, $endpoint);
+    $success = \CollectionManager\NotificationHelper::unsubscribe($userId, $endpoint);
     
     if ($success) {
         Utils::jsonResponse([
@@ -195,7 +195,7 @@ function handleUnsubscribe($userId) {
  * Handle test notification
  */
 function handleTestNotification($userId) {
-    if (!NotificationHelper::isAvailable()) {
+    if (!\CollectionManager\NotificationHelper::isAvailable()) {
         Utils::jsonResponse([
             'success' => false,
             'message' => 'Push notifications not available'
@@ -203,7 +203,7 @@ function handleTestNotification($userId) {
         return;
     }
     
-    $success = NotificationHelper::testNotification($userId);
+    $success = \CollectionManager\NotificationHelper::testNotification($userId);
     
     if ($success) {
         Utils::jsonResponse([
@@ -314,7 +314,7 @@ function handleUpdatePreferences($userId) {
  * Get user's push subscriptions
  */
 function handleGetSubscriptions($userId) {
-    $subscriptions = NotificationHelper::getUserSubscriptions($userId);
+    $subscriptions = \CollectionManager\NotificationHelper::getUserSubscriptions($userId);
     
     // Remove sensitive data before sending to client
     $safeSubscriptions = array_map(function($sub) {
@@ -354,10 +354,10 @@ function handleSendNotification() {
     
     if ($targetUsers) {
         // Send to specific users
-        $success = NotificationHelper::sendToUsers($targetUsers, $title, $body, $data, $options);
+        $success = \CollectionManager\NotificationHelper::sendToUsers($targetUsers, $title, $body, $data, $options);
     } else {
         // Send to all users
-        $success = NotificationHelper::sendToAll($title, $body, $data, $options);
+        $success = \CollectionManager\NotificationHelper::sendToAll($title, $body, $data, $options);
     }
     
     if ($success) {
@@ -380,7 +380,7 @@ function handleGetStats($userId = null) {
     $days = intval($_GET['days'] ?? 30);
     $userFilter = $_GET['user_id'] ?? $userId;
     
-    $stats = NotificationHelper::getStats($userFilter, $days);
+    $stats = \CollectionManager\NotificationHelper::getStats($userFilter, $days);
     
     Utils::jsonResponse([
         'success' => true,

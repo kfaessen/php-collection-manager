@@ -76,8 +76,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
             Database::query($sql, [$result['user_id']]);
             
             // Manually verify email for setup user (since they're admin)
-            if (class_exists('EmailVerificationHelper')) {
-                EmailVerificationHelper::manuallyVerifyUser($result['user_id']);
+            if (class_exists('\CollectionManager\EmailVerificationHelper')) {
+                \CollectionManager\EmailVerificationHelper::manuallyVerifyUser($result['user_id']);
             }
             
             // Auto-login the new admin

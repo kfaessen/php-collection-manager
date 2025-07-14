@@ -161,8 +161,8 @@ try {
         }
 
         // Check if push notifications are available
-        if (class_exists('NotificationHelper') && method_exists('NotificationHelper', 'isAvailable')) {
-            $optionalChecks['push_notifications'] = NotificationHelper::isAvailable() ? 'available' : 'not configured';
+        if (class_exists('\CollectionManager\NotificationHelper') && method_exists('\CollectionManager\NotificationHelper', 'isAvailable')) {
+            $optionalChecks['push_notifications'] = \CollectionManager\NotificationHelper::isAvailable() ? 'available' : 'not configured';
         }
 
         if (!empty($optionalChecks)) {

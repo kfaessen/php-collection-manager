@@ -90,8 +90,8 @@ function handleAjaxRequest()
                 $id = CollectionManager::addItem($data);
                 
                 // Send push notification for new item
-                if ($id && class_exists('NotificationHelper') && NotificationHelper::isAvailable()) {
-                    NotificationHelper::sendCollectionNotification(
+                if ($id && class_exists('\CollectionManager\NotificationHelper') && \CollectionManager\NotificationHelper::isAvailable()) {
+                    \CollectionManager\NotificationHelper::sendCollectionNotification(
                         Authentication::getCurrentUserId(),
                         'item_added',
                         $data['title'],

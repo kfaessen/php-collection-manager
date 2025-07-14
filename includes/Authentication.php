@@ -191,8 +191,8 @@ class Authentication
             
             // Send email verification (only for regular registration, not setup or OAuth)
             $requiresVerification = !isset($userData['skip_verification']) || !$userData['skip_verification'];
-            if ($requiresVerification && class_exists('EmailVerificationHelper')) {
-                $verificationResult = EmailVerificationHelper::sendVerificationEmail($userId, $userData['email']);
+            if ($requiresVerification && class_exists('\CollectionManager\EmailVerificationHelper')) {
+                $verificationResult = \CollectionManager\EmailVerificationHelper::sendVerificationEmail($userId, $userData['email']);
                 
                 if ($verificationResult['success']) {
                     return [

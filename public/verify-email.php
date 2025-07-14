@@ -22,7 +22,7 @@ if (empty($token)) {
     $error = 'Geen verificatie token opgegeven.';
 } else {
     // Verify the email using the token
-    $result = EmailVerificationHelper::verifyEmail($token);
+    $result = \CollectionManager\EmailVerificationHelper::verifyEmail($token);
     
     if ($result['success']) {
         $success = $result['message'];
@@ -78,7 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['resend_verification']
     $resendEmail = $_POST['email'] ?? '';
     
     if (!empty($resendUserId) && !empty($resendEmail)) {
-        $resendResult = EmailVerificationHelper::sendVerificationEmail($resendUserId, $resendEmail, true);
+        $resendResult = \CollectionManager\EmailVerificationHelper::sendVerificationEmail($resendUserId, $resendEmail, true);
         
         if ($resendResult['success']) {
             $success = 'Een nieuwe verificatie email is verzonden naar ' . htmlspecialchars($resendEmail);
