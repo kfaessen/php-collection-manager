@@ -88,24 +88,12 @@ jobs:
       - name: Setup deployment variables
         id: setup
         run: |
-          echo "backup_suffix=dev_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
           echo "environment=development" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create backup
-        run: |
-          echo "💾 Creating backup: ${{ steps.setup.outputs.backup_suffix }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            if [ ! -d ../backups ]; then mkdir -p ../backups; fi
-            tar -czf ../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz \
-              --exclude='.git' --exclude='vendor' --exclude='uploads' --exclude='*.log' .
-            echo '✅ Backup created: backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
-          "
 
       - name: Deploy application
         run: |
@@ -156,19 +144,6 @@ jobs:
               echo '⚠️  No migration script found, skipping database updates'
             fi
           "
-
-      - name: Cleanup old backups
-        run: |
-          echo "🧹 Cleaning up old backups..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}/../backups 2>/dev/null || exit 0
-            
-            # Keep only the last 5 backups per environment
-            ENV_PREFIX=$(echo '${{ steps.setup.outputs.environment }}' | cut -c1-3)
-            ls -t backup_${ENV_PREFIX}_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f
-            
-            echo '✅ Backup cleanup completed'
-          " || echo "No backups to clean up"
 
       - name: Deploy summary
         run: |
@@ -193,24 +168,12 @@ jobs:
       - name: Setup deployment variables
         id: setup
         run: |
-          echo "backup_suffix=tst_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
           echo "environment=test" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create backup
-        run: |
-          echo "💾 Creating backup: ${{ steps.setup.outputs.backup_suffix }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            if [ ! -d ../backups ]; then mkdir -p ../backups; fi
-            tar -czf ../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz \
-              --exclude='.git' --exclude='vendor' --exclude='uploads' --exclude='*.log' .
-            echo '✅ Backup created: backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
-          "
 
       - name: Deploy application
         run: |
@@ -261,19 +224,6 @@ jobs:
               echo '⚠️  No migration script found, skipping database updates'
             fi
           "
-
-      - name: Cleanup old backups
-        run: |
-          echo "🧹 Cleaning up old backups..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}/../backups 2>/dev/null || exit 0
-            
-            # Keep only the last 5 backups per environment
-            ENV_PREFIX=$(echo '${{ steps.setup.outputs.environment }}' | cut -c1-3)
-            ls -t backup_${ENV_PREFIX}_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f
-            
-            echo '✅ Backup cleanup completed'
-          " || echo "No backups to clean up"
 
       - name: Deploy summary
         run: |
@@ -298,24 +248,12 @@ jobs:
       - name: Setup deployment variables
         id: setup
         run: |
-          echo "backup_suffix=acc_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
           echo "environment=acceptance" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create backup
-        run: |
-          echo "💾 Creating backup: ${{ steps.setup.outputs.backup_suffix }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            if [ ! -d ../backups ]; then mkdir -p ../backups; fi
-            tar -czf ../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz \
-              --exclude='.git' --exclude='vendor' --exclude='uploads' --exclude='*.log' .
-            echo '✅ Backup created: backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
-          "
 
       - name: Deploy application
         run: |
@@ -367,19 +305,6 @@ jobs:
             fi
           "
 
-      - name: Cleanup old backups
-        run: |
-          echo "🧹 Cleaning up old backups..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}/../backups 2>/dev/null || exit 0
-            
-            # Keep only the last 5 backups per environment
-            ENV_PREFIX=$(echo '${{ steps.setup.outputs.environment }}' | cut -c1-3)
-            ls -t backup_${ENV_PREFIX}_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f
-            
-            echo '✅ Backup cleanup completed'
-          " || echo "No backups to clean up"
-
       - name: Deploy summary
         run: |
           echo "## 🎉 Deployment Summary" >> $GITHUB_STEP_SUMMARY
@@ -403,7 +328,6 @@ jobs:
       - name: Setup deployment variables
         id: setup
         run: |
-          echo "backup_suffix=prod_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
           echo "environment=production" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
@@ -422,17 +346,6 @@ jobs:
             RewriteCond %{REQUEST_URI} !^/maintenance\.php$
             RewriteCond %{REMOTE_ADDR} !^${{ secrets.ADMIN_IP }}$
             RewriteRule ^(.*)$ /maintenance.php [R=503,L]' > .htaccess
-          "
-
-      - name: Create backup
-        run: |
-          echo "💾 Creating backup: ${{ steps.setup.outputs.backup_suffix }}"
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            if [ ! -d ../backups ]; then mkdir -p ../backups; fi
-            tar -czf ../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz \
-              --exclude='.git' --exclude='vendor' --exclude='uploads' --exclude='*.log' .
-            echo '✅ Backup created: backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
           "
 
       - name: Deploy application
@@ -497,19 +410,6 @@ jobs:
               rm -f .htaccess
             fi
           "
-
-      - name: Cleanup old backups
-        run: |
-          echo "🧹 Cleaning up old backups..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}/../backups 2>/dev/null || exit 0
-            
-            # Keep only the last 5 backups per environment
-            ENV_PREFIX=$(echo '${{ steps.setup.outputs.environment }}' | cut -c1-3)
-            ls -t backup_${ENV_PREFIX}_*.tar.gz 2>/dev/null | tail -n +6 | xargs rm -f
-            
-            echo '✅ Backup cleanup completed'
-          " || echo "No backups to clean up"
 
       - name: Deploy summary
         run: |
