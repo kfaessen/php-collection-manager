@@ -8,6 +8,38 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+/**
+ * Safely escape database identifiers (database names, table names, column names)
+ * This prevents SQL injection in DDL statements where parameterized queries are not available
+ */
+function escapeIdentifier($identifier) {
+    // Remove any backticks and escape them properly
+    $identifier = str_replace('`', '', $identifier);
+    
+    // Only allow alphanumeric characters, underscores, and hyphens
+    if (!preg_match('/^[a-zA-Z0-9_-]+$/', $identifier)) {
+        throw new InvalidArgumentException('Invalid database identifier: ' . $identifier);
+    }
+    
+    return '`' . $identifier . '`';
+}
+
+/**
+ * Safely escape charset names
+ * This prevents SQL injection in charset specifications
+ */
+function escapeCharset($charset) {
+    // Remove any quotes and escape them properly
+    $charset = str_replace(['"', "'"], '', $charset);
+    
+    // Only allow alphanumeric characters and underscores
+    if (!preg_match('/^[a-zA-Z0-9_]+$/', $charset)) {
+        throw new InvalidArgumentException('Invalid charset name: ' . $charset);
+    }
+    
+    return $charset;
+}
+
 echo "Database Migration Runner\n";
 echo "========================\n\n";
 
@@ -44,23 +76,32 @@ try {
 
     // Step 1: Check if database exists, if not create it
     try {
+        // Safely escape configuration values
+        $safeDbName = escapeIdentifier($config['DB_NAME']);
+        $safeCharset = escapeCharset($config['DB_CHARSET']);
+        
         // Connect to MySQL server (without database)
-        $dsn = "mysql:host=" . $config['DB_HOST'] . ";charset=" . $config['DB_CHARSET'];
+        $dsn = "mysql:host=" . $config['DB_HOST'] . ";charset=" . $safeCharset;
         $pdo = new PDO($dsn, $config['DB_USER'], $config['DB_PASS']);
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         echo "✓ Connected to MySQL server\n";
         
-        // Check if database exists
-        $stmt = $pdo->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = '" . $config['DB_NAME'] . "'");
+        // Check if database exists using prepared statement
+        $stmt = $pdo->prepare("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?");
+        $stmt->execute([$config['DB_NAME']]);
         if ($stmt->rowCount() == 0) {
             echo "Database does not exist, creating it...\n";
-            $pdo->exec("CREATE DATABASE IF NOT EXISTS `" . $config['DB_NAME'] . "` CHARACTER SET " . $config['DB_CHARSET'] . " COLLATE " . $config['DB_CHARSET'] . "_unicode_ci");
+            // Use safely escaped identifiers for CREATE DATABASE
+            $createDbSql = "CREATE DATABASE IF NOT EXISTS $safeDbName CHARACTER SET $safeCharset COLLATE {$safeCharset}_unicode_ci";
+            $pdo->exec($createDbSql);
             echo "✓ Database '" . $config['DB_NAME'] . "' created\n";
         } else {
             echo "✓ Database '" . $config['DB_NAME'] . "' already exists\n";
         }
     } catch (PDOException $e) {
         die("✗ Failed to connect to MySQL server or create database: " . $e->getMessage() . "\n");
+    } catch (InvalidArgumentException $e) {
+        die("✗ Invalid configuration: " . $e->getMessage() . "\n");
     }
     
     // Initialize database (this will run migrations automatically)
