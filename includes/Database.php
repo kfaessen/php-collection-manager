@@ -420,9 +420,9 @@ class Database
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
                     
                     // Add notification preferences to users
-                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `notifications_enabled` BOOLEAN DEFAULT TRUE",
-                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `email_notifications` BOOLEAN DEFAULT TRUE",
-                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN IF NOT EXISTS `push_notifications` BOOLEAN DEFAULT TRUE"
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN `notifications_enabled` BOOLEAN DEFAULT TRUE",
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN `email_notifications` BOOLEAN DEFAULT TRUE",
+                    "ALTER TABLE `" . Environment::getTableName('users') . "` ADD COLUMN `push_notifications` BOOLEAN DEFAULT TRUE"
                 ]
             ]
         ];
