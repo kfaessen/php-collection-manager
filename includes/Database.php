@@ -7,7 +7,7 @@ class Database
 {
     private static $connection = null;
     private static $initialized = false;
-    private static $currentVersion = 6; // Huidige database versie
+    private static $currentVersion = 7; // Huidige database versie
     
     /**
      * Initialize database connection
@@ -375,6 +375,128 @@ class Database
                         ('es', 'Spanish', 'Español', 0, 0, 5),
                         ('ar', 'Arabic', 'العربية', 1, 0, 6),
                         ('he', 'Hebrew', 'עברית', 1, 0, 7)"
+                ]
+            ],
+            7 => [
+                'name' => 'Add API Integration for Cover Images and Metadata',
+                'sql' => [
+                    // API Providers table
+                    "CREATE TABLE IF NOT EXISTS `api_providers` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        name VARCHAR(50) UNIQUE NOT NULL,
+                        description TEXT,
+                        base_url VARCHAR(255) NOT NULL,
+                        requires_auth BOOLEAN DEFAULT FALSE,
+                        rate_limit_per_minute INT DEFAULT 60,
+                        is_active BOOLEAN DEFAULT TRUE,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_name (name),
+                        INDEX idx_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // API Cache table for storing API responses
+                    "CREATE TABLE IF NOT EXISTS `api_cache` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        provider_id INT NOT NULL,
+                        cache_key VARCHAR(255) NOT NULL,
+                        request_url TEXT,
+                        response_data LONGTEXT,
+                        expires_at TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_key (provider_id, cache_key),
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE CASCADE,
+                        INDEX idx_cache_key (cache_key),
+                        INDEX idx_expires (expires_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Item Metadata table for storing enriched data
+                    "CREATE TABLE IF NOT EXISTS `item_metadata` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        item_id INT NOT NULL,
+                        provider_id INT,
+                        external_id VARCHAR(255),
+                        metadata_type ENUM('game', 'movie', 'tv_series', 'book', 'music') NOT NULL,
+                        title VARCHAR(255),
+                        description TEXT,
+                        release_date DATE,
+                        genre VARCHAR(255),
+                        developer VARCHAR(255),
+                        publisher VARCHAR(255),
+                        director VARCHAR(255),
+                        actors TEXT,
+                        rating VARCHAR(10),
+                        imdb_rating DECIMAL(3,1),
+                        metacritic_score INT,
+                        runtime_minutes INT,
+                        language VARCHAR(10),
+                        country VARCHAR(100),
+                        platforms TEXT,
+                        tags TEXT,
+                        price_info TEXT,
+                        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_item_provider (item_id, provider_id),
+                        FOREIGN KEY (item_id) REFERENCES collection_items(id) ON DELETE CASCADE,
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE SET NULL,
+                        INDEX idx_item_id (item_id),
+                        INDEX idx_external_id (external_id),
+                        INDEX idx_metadata_type (metadata_type)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Cover Images table for managing multiple image sizes
+                    "CREATE TABLE IF NOT EXISTS `cover_images` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        item_id INT NOT NULL,
+                        provider_id INT,
+                        image_type ENUM('cover', 'poster', 'banner', 'screenshot', 'logo') DEFAULT 'cover',
+                        size_type ENUM('thumb', 'small', 'medium', 'large', 'original') DEFAULT 'medium',
+                        original_url TEXT,
+                        local_path VARCHAR(500),
+                        width INT,
+                        height INT,
+                        file_size INT,
+                        mime_type VARCHAR(50),
+                        is_primary BOOLEAN DEFAULT FALSE,
+                        download_status ENUM('pending', 'downloading', 'completed', 'failed') DEFAULT 'pending',
+                        download_attempts INT DEFAULT 0,
+                        last_download_attempt TIMESTAMP NULL,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (item_id) REFERENCES collection_items(id) ON DELETE CASCADE,
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE SET NULL,
+                        INDEX idx_item_id (item_id),
+                        INDEX idx_image_type (image_type),
+                        INDEX idx_is_primary (is_primary),
+                        INDEX idx_download_status (download_status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // API Rate Limiting table
+                    "CREATE TABLE IF NOT EXISTS `api_rate_limits` (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        provider_id INT NOT NULL,
+                        ip_address VARCHAR(45),
+                        request_count INT DEFAULT 1,
+                        window_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        last_request TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        UNIQUE KEY unique_provider_ip (provider_id, ip_address),
+                        FOREIGN KEY (provider_id) REFERENCES api_providers(id) ON DELETE CASCADE,
+                        INDEX idx_window_start (window_start)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+                    
+                    // Add new columns to collection_items for API integration
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `api_enriched` BOOLEAN DEFAULT FALSE",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `auto_cover_enabled` BOOLEAN DEFAULT TRUE",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `last_api_check` TIMESTAMP NULL",
+                    "ALTER TABLE `collection_items` ADD COLUMN IF NOT EXISTS `api_match_confidence` DECIMAL(3,2) DEFAULT 0.00",
+                    
+                    // Insert default API providers
+                    "INSERT IGNORE INTO `api_providers` (name, description, base_url, requires_auth, rate_limit_per_minute, is_active) VALUES 
+                        ('IGDB', 'Internet Game Database - Game metadata and covers', 'https://api.igdb.com/v4/', 1, 30, 1),
+                        ('OMDb', 'Open Movie Database - Movie and TV series metadata', 'http://www.omdbapi.com/', 1, 60, 1),
+                        ('OpenLibrary', 'Open Library - Book metadata and covers', 'https://openlibrary.org/', 0, 100, 1),
+                        ('TMDb', 'The Movie Database - Movie and TV metadata with high quality images', 'https://api.themoviedb.org/3/', 1, 40, 0),
+                        ('Spotify', 'Spotify Web API - Music album metadata and covers', 'https://api.spotify.com/v1/', 1, 100, 0)"
                 ]
             ]
         ];

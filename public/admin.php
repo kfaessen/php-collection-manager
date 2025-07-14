@@ -134,6 +134,9 @@ try {
             <li class="nav-item">
                 <a class="nav-link<?= $tab === 'stats' ? ' active' : '' ?>" href="?tab=stats"><i class="bi bi-bar-chart"></i> Statistieken</a>
             </li>
+            <li class="nav-item">
+                <a class="nav-link<?= $tab === 'system' ? ' active' : '' ?>" href="?tab=system"><i class="bi bi-gear"></i> Systeem</a>
+            </li>
         </ul>
         <div class="tab-content">
             <!-- Gebruikersbeheer -->
@@ -281,6 +284,92 @@ try {
                                 <h5 class="card-title"><i class="bi bi-person-plus"></i> Nieuw</h5>
                                 <p class="card-text display-6 mb-0"><?= $userStats['new_last_month'] ?? 0 ?></p>
                                 <small class="text-muted">Aangemaakt deze maand</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Systeem -->
+            <div class="tab-pane fade<?= $tab === 'system' ? ' show active' : '' ?>" id="system">
+                <h4><i class="bi bi-gear"></i> Systeembeheer</h4>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-cloud-download"></i> API Integraties</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer API integraties voor automatische metadata en cover afbeeldingen.</p>
+                                <a href="api-manager.php" class="btn btn-primary">
+                                    <i class="bi bi-gear"></i> API Manager Openen
+                                </a>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-shield-lock"></i> TOTP Beheer</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer twee-factor authenticatie instellingen.</p>
+                                <a href="totp-setup.php" class="btn btn-outline-primary">
+                                    <i class="bi bi-shield-lock"></i> TOTP Setup
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-translate"></i> Taalinstellingen</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Beheer ondersteunde talen en vertalingen.</p>
+                                <div class="d-grid gap-2">
+                                    <?php if (I18nHelper::isEnabled()): ?>
+                                        <?php 
+                                        $currentLang = I18nHelper::getCurrentLanguage();
+                                        $availableLanguages = I18nHelper::getAvailableLanguages();
+                                        ?>
+                                        <p><strong>Huidige taal:</strong> <?= $currentLang ?></p>
+                                        <p><strong>Beschikbare talen:</strong> <?= count($availableLanguages) ?></p>
+                                        
+                                        <?php echo CollectionManager\LanguageSwitcher::render('buttons', true, true); ?>
+                                    <?php else: ?>
+                                        <p class="text-muted">Meertalige ondersteuning is uitgeschakeld</p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card mb-4">
+                            <div class="card-header">
+                                <h5 class="mb-0"><i class="bi bi-link-45deg"></i> OAuth Providers</h5>
+                            </div>
+                            <div class="card-body">
+                                <p class="card-text">Sociale login providers status.</p>
+                                <div class="row">
+                                    <div class="col-6">
+                                        <strong>Google:</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="badge bg-<?= OAuthHelper::isEnabled('google') ? 'success' : 'secondary' ?>">
+                                            <?= OAuthHelper::isEnabled('google') ? 'Actief' : 'Inactief' ?>
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="row mt-2">
+                                    <div class="col-6">
+                                        <strong>Facebook:</strong>
+                                    </div>
+                                    <div class="col-6">
+                                        <span class="badge bg-<?= OAuthHelper::isEnabled('facebook') ? 'success' : 'secondary' ?>">
+                                            <?= OAuthHelper::isEnabled('facebook') ? 'Actief' : 'Inactief' ?>
+                                        </span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
