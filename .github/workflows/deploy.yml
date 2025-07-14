@@ -84,35 +84,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for rollback capability
 
       - name: Setup deployment variables
         id: setup
         run: |
           echo "backup_suffix=dev_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
-          echo "health_check_url=${{ secrets.DEV_URL }}/health-check.php" >> $GITHUB_OUTPUT
-          echo "maintenance_mode=false" >> $GITHUB_OUTPUT
           echo "environment=development" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🚧 Enabling maintenance mode for production..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            echo '<?php http_response_code(503); echo \"<h1>Onderhoud</h1><p>De site wordt bijgewerkt. Probeer het over een paar minuten opnieuw.</p>\"; exit; ?>' > maintenance.php
-            if [ -f .htaccess ]; then cp .htaccess .htaccess.backup; fi
-            echo 'RewriteEngine On
-            RewriteCond %{REQUEST_URI} !^/maintenance\.php$
-            RewriteCond %{REMOTE_ADDR} !^${{ secrets.ADMIN_IP }}$
-            RewriteRule ^(.*)$ /maintenance.php [R=503,L]' > .htaccess
-          "
 
       - name: Create backup
         run: |
@@ -130,9 +112,6 @@ jobs:
           echo "🚀 Deploying to ${{ steps.setup.outputs.environment }}..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Store current commit for rollback
-            git rev-parse HEAD > .previous_commit 2>/dev/null || echo 'unknown' > .previous_commit
             
             # Pull latest changes
             git fetch origin
@@ -178,25 +157,6 @@ jobs:
             fi
           "
 
-      - name: Disable maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🔄 Disabling maintenance mode..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            rm -f maintenance.php
-            if [ -f .htaccess.backup ]; then 
-              mv .htaccess.backup .htaccess
-            else
-              rm -f .htaccess
-            fi
-          "
-
-      - name: Deployment verification
-        run: |
-          echo "✅ Deployment completed successfully"
-          echo "Application deployed to ${{ steps.setup.outputs.environment }}"
-
       - name: Cleanup old backups
         run: |
           echo "🧹 Cleaning up old backups..."
@@ -218,11 +178,6 @@ jobs:
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Check:** ${{ steps.health-check.outputs.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.setup.outputs.health_check_url }}" != "" ]; then
-            echo "**URL:** ${{ steps.setup.outputs.health_check_url }}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   deploy-tst:
     name: 🚀 Deploy to Test
@@ -234,35 +189,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for rollback capability
 
       - name: Setup deployment variables
         id: setup
         run: |
           echo "backup_suffix=tst_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
-          echo "health_check_url=${{ secrets.TST_URL }}/health-check.php" >> $GITHUB_OUTPUT
-          echo "maintenance_mode=false" >> $GITHUB_OUTPUT
           echo "environment=test" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🚧 Enabling maintenance mode for production..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            echo '<?php http_response_code(503); echo \"<h1>Onderhoud</h1><p>De site wordt bijgewerkt. Probeer het over een paar minuten opnieuw.</p>\"; exit; ?>' > maintenance.php
-            if [ -f .htaccess ]; then cp .htaccess .htaccess.backup; fi
-            echo 'RewriteEngine On
-            RewriteCond %{REQUEST_URI} !^/maintenance\.php$
-            RewriteCond %{REMOTE_ADDR} !^${{ secrets.ADMIN_IP }}$
-            RewriteRule ^(.*)$ /maintenance.php [R=503,L]' > .htaccess
-          "
 
       - name: Create backup
         run: |
@@ -280,9 +217,6 @@ jobs:
           echo "🚀 Deploying to ${{ steps.setup.outputs.environment }}..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Store current commit for rollback
-            git rev-parse HEAD > .previous_commit 2>/dev/null || echo 'unknown' > .previous_commit
             
             # Pull latest changes
             git fetch origin
@@ -328,25 +262,6 @@ jobs:
             fi
           "
 
-      - name: Disable maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🔄 Disabling maintenance mode..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            rm -f maintenance.php
-            if [ -f .htaccess.backup ]; then 
-              mv .htaccess.backup .htaccess
-            else
-              rm -f .htaccess
-            fi
-          "
-
-      - name: Deployment verification
-        run: |
-          echo "✅ Deployment completed successfully"
-          echo "Application deployed to ${{ steps.setup.outputs.environment }}"
-
       - name: Cleanup old backups
         run: |
           echo "🧹 Cleaning up old backups..."
@@ -368,11 +283,6 @@ jobs:
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Check:** ${{ steps.health-check.outputs.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.setup.outputs.health_check_url }}" != "" ]; then
-            echo "**URL:** ${{ steps.setup.outputs.health_check_url }}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   deploy-acc:
     name: 🚀 Deploy to Acceptance
@@ -384,35 +294,17 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for rollback capability
 
       - name: Setup deployment variables
         id: setup
         run: |
           echo "backup_suffix=acc_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
-          echo "health_check_url=${{ secrets.ACC_URL }}/health-check.php" >> $GITHUB_OUTPUT
-          echo "maintenance_mode=false" >> $GITHUB_OUTPUT
           echo "environment=acceptance" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      - name: Create maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🚧 Enabling maintenance mode for production..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            echo '<?php http_response_code(503); echo \"<h1>Onderhoud</h1><p>De site wordt bijgewerkt. Probeer het over een paar minuten opnieuw.</p>\"; exit; ?>' > maintenance.php
-            if [ -f .htaccess ]; then cp .htaccess .htaccess.backup; fi
-            echo 'RewriteEngine On
-            RewriteCond %{REQUEST_URI} !^/maintenance\.php$
-            RewriteCond %{REMOTE_ADDR} !^${{ secrets.ADMIN_IP }}$
-            RewriteRule ^(.*)$ /maintenance.php [R=503,L]' > .htaccess
-          "
 
       - name: Create backup
         run: |
@@ -430,9 +322,6 @@ jobs:
           echo "🚀 Deploying to ${{ steps.setup.outputs.environment }}..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Store current commit for rollback
-            git rev-parse HEAD > .previous_commit 2>/dev/null || echo 'unknown' > .previous_commit
             
             # Pull latest changes
             git fetch origin
@@ -478,60 +367,6 @@ jobs:
             fi
           "
 
-      - name: Disable maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
-        run: |
-          echo "🔄 Disabling maintenance mode..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            rm -f maintenance.php
-            if [ -f .htaccess.backup ]; then 
-              mv .htaccess.backup .htaccess
-            else
-              rm -f .htaccess
-            fi
-          "
-
-      - name: Health check
-        id: health-check
-        run: |
-          echo "🏥 Performing health check..."
-          
-          # Wait a moment for the deployment to settle
-          sleep 10
-          
-          # Test basic connectivity
-          if curl -f -s -m 30 "${{ steps.setup.outputs.health_check_url }}" > /dev/null 2>&1; then
-            echo "✅ Health check passed"
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Health check failed"
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Rollback on health check failure
-        if: steps.health-check.outputs.status == 'failed'
-        run: |
-          echo "🔄 Rolling back due to health check failure..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Get previous commit
-            PREV_COMMIT=\$(cat .previous_commit 2>/dev/null || echo 'HEAD~1')
-            
-            # Rollback to previous commit
-            git reset --hard \$PREV_COMMIT
-            
-            # Restore from backup if available
-            if [ -f '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz' ]; then
-              tar -xzf '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
-              echo '✅ Rollback completed using backup'
-            else
-              echo '✅ Rollback completed using git reset'
-            fi
-          "
-          exit 1
-
       - name: Cleanup old backups
         run: |
           echo "🧹 Cleaning up old backups..."
@@ -553,11 +388,6 @@ jobs:
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Check:** ${{ steps.health-check.outputs.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.setup.outputs.health_check_url }}" != "" ]; then
-            echo "**URL:** ${{ steps.setup.outputs.health_check_url }}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   deploy-prd:
     name: 🚀 Deploy to Production
@@ -569,23 +399,19 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # Full history for rollback capability
 
       - name: Setup deployment variables
         id: setup
         run: |
           echo "backup_suffix=prod_$(date +%Y%m%d_%H%M%S)" >> $GITHUB_OUTPUT
-          echo "health_check_url=${{ secrets.PROD_URL }}/health-check.php" >> $GITHUB_OUTPUT
-          echo "maintenance_mode=true" >> $GITHUB_OUTPUT
+          echo "environment=production" >> $GITHUB_OUTPUT
 
       - name: Setup SSH key
         uses: webfactory/ssh-agent@v0.8.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
 
-      - name: Create maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
+      - name: Create maintenance mode
         run: |
           echo "🚧 Enabling maintenance mode for production..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
@@ -614,9 +440,6 @@ jobs:
           echo "🚀 Deploying to ${{ steps.setup.outputs.environment }}..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Store current commit for rollback
-            git rev-parse HEAD > .previous_commit 2>/dev/null || echo 'unknown' > .previous_commit
             
             # Pull latest changes
             git fetch origin
@@ -662,8 +485,7 @@ jobs:
             fi
           "
 
-      - name: Disable maintenance mode (Production only)
-        if: steps.setup.outputs.maintenance_mode == 'true'
+      - name: Disable maintenance mode
         run: |
           echo "🔄 Disabling maintenance mode..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
@@ -675,46 +497,6 @@ jobs:
               rm -f .htaccess
             fi
           "
-
-      - name: Health check
-        id: health-check
-        run: |
-          echo "🏥 Performing health check..."
-          
-          # Wait a moment for the deployment to settle
-          sleep 10
-          
-          # Test basic connectivity
-          if curl -f -s -m 30 "${{ steps.setup.outputs.health_check_url }}" > /dev/null 2>&1; then
-            echo "✅ Health check passed"
-            echo "status=success" >> $GITHUB_OUTPUT
-          else
-            echo "❌ Health check failed"
-            echo "status=failed" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Rollback on health check failure
-        if: steps.health-check.outputs.status == 'failed'
-        run: |
-          echo "🔄 Rolling back due to health check failure..."
-          ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
-            cd ${{ secrets.DEPLOY_PATH }}
-            
-            # Get previous commit
-            PREV_COMMIT=\$(cat .previous_commit 2>/dev/null || echo 'HEAD~1')
-            
-            # Rollback to previous commit
-            git reset --hard \$PREV_COMMIT
-            
-            # Restore from backup if available
-            if [ -f '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz' ]; then
-              tar -xzf '../backups/backup_${{ steps.setup.outputs.backup_suffix }}.tar.gz'
-              echo '✅ Rollback completed using backup'
-            else
-              echo '✅ Rollback completed using git reset'
-            fi
-          "
-          exit 1
 
       - name: Cleanup old backups
         run: |
@@ -737,11 +519,6 @@ jobs:
           echo "**Branch:** ${{ github.ref_name }}" >> $GITHUB_STEP_SUMMARY
           echo "**Commit:** ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
           echo "**Status:** ✅ Success" >> $GITHUB_STEP_SUMMARY
-          echo "**Health Check:** ${{ steps.health-check.outputs.status }}" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ steps.setup.outputs.health_check_url }}" != "" ]; then
-            echo "**URL:** ${{ steps.setup.outputs.health_check_url }}" >> $GITHUB_STEP_SUMMARY
-          fi
 
   # Notification job (runs regardless of deployment success/failure)
   notify:
@@ -753,7 +530,7 @@ jobs:
       - name: Notify deployment result
         run: |
           if [ "${{ needs.deploy-prd.result }}" == "success" ]; then
-            echo "✅ Deployment to ${{ steps.setup.outputs.environment }} completed successfully"
+            echo "✅ Deployment to production completed successfully"
           else
-            echo "❌ Deployment to ${{ steps.setup.outputs.environment }} failed"
+            echo "❌ Deployment to production failed"
           fi 
