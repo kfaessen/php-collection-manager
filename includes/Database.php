@@ -672,6 +672,11 @@ class Database
         $transactionStarted = false;
         
         try {
+            // Ensure we have a valid connection
+            if (!$connection) {
+                throw new \Exception("Database connection not available");
+            }
+            
             // Check if there's already an active transaction
             if (!$connection->inTransaction()) {
                 $connection->beginTransaction();
@@ -688,7 +693,8 @@ class Database
                         strpos($sql, 'CREATE INDEX IF NOT EXISTS') !== false ||
                         strpos($e->getMessage(), 'Duplicate column name') !== false ||
                         strpos($e->getMessage(), 'Duplicate key name') !== false ||
-                        strpos($e->getMessage(), 'already exists') !== false) {
+                        strpos($e->getMessage(), 'already exists') !== false ||
+                        strpos($e->getMessage(), 'Table') !== false && strpos($e->getMessage(), 'already exists') !== false) {
                         error_log("Migration v$version warning (non-critical): " . $e->getMessage() . " (SQL: $sql)");
                         // Continue with the migration - don't fail the entire migration
                     } else {
@@ -709,8 +715,12 @@ class Database
             
         } catch (\Exception $e) {
             // Rollback if we started the transaction and it's still active
-            if ($transactionStarted && $connection->inTransaction()) {
-                $connection->rollBack();
+            if ($transactionStarted && $connection && $connection->inTransaction()) {
+                try {
+                    $connection->rollBack();
+                } catch (\Exception $rollbackException) {
+                    error_log("Failed to rollback transaction: " . $rollbackException->getMessage());
+                }
             }
             throw $e;
         }
@@ -931,9 +941,19 @@ class Database
      * Get current database version (public method)
      */
     public static function getCurrentVersion() {
+        return self::$currentVersion;
+    }
+    
+    /**
+     * Get installed database version
+     */
+    public static function getInstalledVersion() {
         try {
+            if (!self::$initialized) {
+                self::init();
+            }
             return self::getCurrentDatabaseVersion();
-        } catch (Exception $e) {
+        } catch (\Exception $e) {
             return 0;
         }
     }
