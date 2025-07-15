@@ -643,4 +643,127 @@ class Database
         error_log("Warning: migrate() is deprecated. Migrations are now automatic.");
         return true;
     }
+
+    /**
+     * Insert default groups
+     */
+    public static function insertDefaultGroups() 
+    {
+        $groupsTable = Environment::getTableName('groups');
+        
+        $defaultGroups = [
+            ['name' => 'admin', 'description' => 'Administrators with full access'],
+            ['name' => 'moderator', 'description' => 'Moderators with limited administrative access'],
+            ['name' => 'user', 'description' => 'Regular users with basic access'],
+            ['name' => 'guest', 'description' => 'Guest users with read-only access']
+        ];
+        
+        foreach ($defaultGroups as $group) {
+            // Check if group already exists
+            $sql = "SELECT COUNT(*) as count FROM `$groupsTable` WHERE name = ?";
+            $stmt = self::query($sql, [$group['name']]);
+            $result = $stmt->fetch();
+            
+            if ($result['count'] == 0) {
+                $sql = "INSERT INTO `$groupsTable` (name, description) VALUES (?, ?)";
+                self::query($sql, [$group['name'], $group['description']]);
+            }
+        }
+    }
+
+    /**
+     * Insert default permissions
+     */
+    public static function insertDefaultPermissions() 
+    {
+        $permissionsTable = Environment::getTableName('permissions');
+        
+        $defaultPermissions = [
+            ['name' => 'user_manage', 'description' => 'Manage users (create, edit, delete)'],
+            ['name' => 'group_manage', 'description' => 'Manage groups (create, edit, delete)'],
+            ['name' => 'permission_manage', 'description' => 'Manage permissions (create, edit, delete)'],
+            ['name' => 'collection_manage', 'description' => 'Manage collections (create, edit, delete)'],
+            ['name' => 'collection_view', 'description' => 'View collections'],
+            ['name' => 'collection_edit', 'description' => 'Edit collections'],
+            ['name' => 'collection_delete', 'description' => 'Delete collections'],
+            ['name' => 'item_manage', 'description' => 'Manage collection items (create, edit, delete)'],
+            ['name' => 'item_view', 'description' => 'View collection items'],
+            ['name' => 'item_edit', 'description' => 'Edit collection items'],
+            ['name' => 'item_delete', 'description' => 'Delete collection items'],
+            ['name' => 'system_settings', 'description' => 'Manage system settings'],
+            ['name' => 'system_logs', 'description' => 'View system logs'],
+            ['name' => 'backup_restore', 'description' => 'Create and restore backups']
+        ];
+        
+        foreach ($defaultPermissions as $permission) {
+            // Check if permission already exists
+            $sql = "SELECT COUNT(*) as count FROM `$permissionsTable` WHERE name = ?";
+            $stmt = self::query($sql, [$permission['name']]);
+            $result = $stmt->fetch();
+            
+            if ($result['count'] == 0) {
+                $sql = "INSERT INTO `$permissionsTable` (name, description) VALUES (?, ?)";
+                self::query($sql, [$permission['name'], $permission['description']]);
+            }
+        }
+    }
+
+    /**
+     * Insert default group permissions
+     */
+    public static function insertDefaultGroupPermissions() 
+    {
+        $groupsTable = Environment::getTableName('groups');
+        $permissionsTable = Environment::getTableName('permissions');
+        $groupPermissionsTable = Environment::getTableName('group_permissions');
+        
+        $defaultGroupPermissions = [
+            'admin' => [
+                'user_manage', 'group_manage', 'permission_manage', 'collection_manage',
+                'collection_view', 'collection_edit', 'collection_delete', 'item_manage',
+                'item_view', 'item_edit', 'item_delete', 'system_settings', 'system_logs', 'backup_restore'
+            ],
+            'moderator' => [
+                'collection_view', 'collection_edit', 'item_manage', 'item_view', 'item_edit'
+            ],
+            'user' => [
+                'collection_view', 'item_view', 'item_edit'
+            ],
+            'guest' => [
+                'collection_view', 'item_view'
+            ]
+        ];
+        
+        foreach ($defaultGroupPermissions as $groupName => $permissions) {
+            // Get group ID
+            $sql = "SELECT id FROM `$groupsTable` WHERE name = ?";
+            $stmt = self::query($sql, [$groupName]);
+            $group = $stmt->fetch();
+            
+            if ($group) {
+                $groupId = $group['id'];
+                
+                foreach ($permissions as $permissionName) {
+                    // Get permission ID
+                    $sql = "SELECT id FROM `$permissionsTable` WHERE name = ?";
+                    $stmt = self::query($sql, [$permissionName]);
+                    $permission = $stmt->fetch();
+                    
+                    if ($permission) {
+                        $permissionId = $permission['id'];
+                        
+                        // Check if group permission already exists
+                        $sql = "SELECT COUNT(*) as count FROM `$groupPermissionsTable` WHERE group_id = ? AND permission_id = ?";
+                        $stmt = self::query($sql, [$groupId, $permissionId]);
+                        $result = $stmt->fetch();
+                        
+                        if ($result['count'] == 0) {
+                            $sql = "INSERT INTO `$groupPermissionsTable` (group_id, permission_id) VALUES (?, ?)";
+                            self::query($sql, [$groupId, $permissionId]);
+                        }
+                    }
+                }
+            }
+        }
+    }
 } 
