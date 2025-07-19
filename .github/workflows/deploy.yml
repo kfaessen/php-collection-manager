@@ -28,8 +28,43 @@ jobs:
         extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
         coverage: none
 
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME="Collection Manager"
+        APP_ENV=local
+        APP_KEY=
+        APP_DEBUG=true
+        APP_URL=http://localhost
+        LOG_CHANNEL=stack
+        LOG_DEPRECATIONS_CHANNEL=null
+        LOG_LEVEL=debug
+        DB_CONNECTION=mysql
+        DB_HOST=127.0.0.1
+        DB_PORT=3306
+        DB_DATABASE=collection_manager_test
+        DB_USERNAME=root
+        DB_PASSWORD=password
+        BROADCAST_DRIVER=log
+        CACHE_DRIVER=file
+        FILESYSTEM_DISK=local
+        QUEUE_CONNECTION=sync
+        SESSION_DRIVER=file
+        SESSION_LIFETIME=120
+        MEMCACHED_HOST=127.0.0.1
+        REDIS_HOST=127.0.0.1
+        REDIS_PASSWORD=null
+        REDIS_PORT=6379
+        MAIL_MAILER=smtp
+        MAIL_HOST=mailpit
+        MAIL_PORT=1025
+        MAIL_USERNAME=null
+        MAIL_PASSWORD=null
+        MAIL_ENCRYPTION=null
+        MAIL_FROM_ADDRESS="hello@example.com"
+        MAIL_FROM_NAME="${APP_NAME}"
+        VITE_APP_NAME="${APP_NAME}"
+        EOF
 
     - name: Install dependencies
       run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
@@ -39,15 +74,6 @@ jobs:
 
     - name: Directory permissions
       run: chmod -R 777 storage bootstrap/cache
-
-    - name: Configure database for testing
-      run: |
-        php artisan config:cache
-        php artisan config:set database.connections.mysql.host 127.0.0.1
-        php artisan config:set database.connections.mysql.port 3306
-        php artisan config:set database.connections.mysql.database collection_manager_test
-        php artisan config:set database.connections.mysql.username root
-        php artisan config:set database.connections.mysql.password password
 
     - name: Run tests
       run: php artisan test
@@ -67,11 +93,46 @@ jobs:
         extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
         coverage: none
 
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME="Collection Manager"
+        APP_ENV=production
+        APP_KEY=
+        APP_DEBUG=false
+        APP_URL=http://localhost
+        LOG_CHANNEL=stack
+        LOG_DEPRECATIONS_CHANNEL=null
+        LOG_LEVEL=debug
+        DB_CONNECTION=mysql
+        DB_HOST=127.0.0.1
+        DB_PORT=3306
+        DB_DATABASE=collection_manager
+        DB_USERNAME=root
+        DB_PASSWORD=
+        BROADCAST_DRIVER=log
+        CACHE_DRIVER=file
+        FILESYSTEM_DISK=local
+        QUEUE_CONNECTION=sync
+        SESSION_DRIVER=file
+        SESSION_LIFETIME=120
+        MEMCACHED_HOST=127.0.0.1
+        REDIS_HOST=127.0.0.1
+        REDIS_PASSWORD=null
+        REDIS_PORT=6379
+        MAIL_MAILER=smtp
+        MAIL_HOST=mailpit
+        MAIL_PORT=1025
+        MAIL_USERNAME=null
+        MAIL_PASSWORD=null
+        MAIL_ENCRYPTION=null
+        MAIL_FROM_ADDRESS="hello@example.com"
+        MAIL_FROM_NAME="${APP_NAME}"
+        VITE_APP_NAME="${APP_NAME}"
+        EOF
+
     - name: Install dependencies
       run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-    - name: Copy .env
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
 
     - name: Generate key
       run: php artisan key:generate
@@ -88,7 +149,7 @@ jobs:
 
     # SSH Deployment (for VPS/Dedicated servers)
     - name: Deploy via SSH
-      if: secrets.SSH_HOST
+      if: ${{ secrets.SSH_HOST != '' }}
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -112,7 +173,7 @@ jobs:
 
     # FTP Deployment (for shared hosting)
     - name: Deploy via FTP
-      if: secrets.FTP_SERVER
+      if: ${{ secrets.FTP_SERVER != '' }}
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.FTP_SERVER }}
