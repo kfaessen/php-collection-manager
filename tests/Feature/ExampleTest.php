@@ -15,8 +15,8 @@ class ExampleTest extends TestCase
         // Test a route that doesn't depend on setup status
         $response = $this->get('/setup');
 
-        // Should either return 200 (setup page) or 302 (redirect to setup)
-        $response->assertStatus(200);
+        // Should return 302 (redirect to setup welcome page)
+        $response->assertStatus(302);
     }
 
     /**
