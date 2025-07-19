@@ -3,11 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Http\Requests\StoreUserRequest;
+use App\Http\Requests\UpdateUserRequest;
+use App\Http\Requests\StoreRoleRequest;
+use App\Http\Requests\UpdateRoleRequest;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
 
 class AdminController extends Controller
@@ -75,26 +78,8 @@ class AdminController extends Controller
     /**
      * Store a newly created user.
      */
-    public function storeUser(Request $request)
+    public function storeUser(StoreUserRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'username' => 'required|string|max:50|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'is_active' => 'boolean',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
@@ -128,26 +113,8 @@ class AdminController extends Controller
     /**
      * Update the specified user.
      */
-    public function updateUser(Request $request, User $user)
+    public function updateUser(UpdateUserRequest $request, User $user)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255',
-            'email' => ['required', 'string', 'email', 'max:255', Rule::unique('users')->ignore($user->id)],
-            'username' => ['required', 'string', 'max:50', Rule::unique('users')->ignore($user->id)],
-            'password' => 'nullable|string|min:8|confirmed',
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'is_active' => 'boolean',
-            'roles' => 'array',
-            'roles.*' => 'exists:roles,id',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
         $user->update([
             'name' => $request->name,
             'email' => $request->email,
@@ -213,22 +180,8 @@ class AdminController extends Controller
     /**
      * Store a newly created role.
      */
-    public function storeRole(Request $request)
+    public function storeRole(StoreRoleRequest $request)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => 'required|string|max:255|unique:roles',
-            'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:500',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
         $role = Role::create([
             'name' => $request->name,
             'display_name' => $request->display_name,
@@ -257,22 +210,8 @@ class AdminController extends Controller
     /**
      * Update the specified role.
      */
-    public function updateRole(Request $request, Role $role)
+    public function updateRole(UpdateRoleRequest $request, Role $role)
     {
-        $validator = Validator::make($request->all(), [
-            'name' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($role->id)],
-            'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string|max:500',
-            'permissions' => 'array',
-            'permissions.*' => 'exists:permissions,id',
-        ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
-
         $role->update([
             'name' => $request->name,
             'display_name' => $request->display_name,
@@ -332,17 +271,11 @@ class AdminController extends Controller
      */
     public function storePermission(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => 'required|string|max:255|unique:permissions',
             'display_name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
         ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
 
         Permission::create([
             'name' => $request->name,
@@ -367,17 +300,11 @@ class AdminController extends Controller
      */
     public function updatePermission(Request $request, Permission $permission)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'name' => ['required', 'string', 'max:255', Rule::unique('permissions')->ignore($permission->id)],
             'display_name' => 'required|string|max:255',
             'description' => 'nullable|string|max:500',
         ]);
-
-        if ($validator->fails()) {
-            return redirect()->back()
-                ->withErrors($validator)
-                ->withInput();
-        }
 
         $permission->update([
             'name' => $request->name,
