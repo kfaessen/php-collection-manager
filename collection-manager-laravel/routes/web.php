@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\CollectionController;
 use App\Http\Controllers\TOTPController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OAuthController;
@@ -36,6 +37,29 @@ Route::middleware('auth')->group(function () {
     Route::put('/profile/password', [ProfileController::class, 'changePassword'])->name('profile.password');
     Route::put('/profile/disable-totp', [ProfileController::class, 'disableTOTP'])->name('profile.disable-totp');
 });
+
+// Collection routes
+Route::middleware('auth')->group(function () {
+    Route::get('/collection', [CollectionController::class, 'index'])->name('collection.index');
+    Route::get('/collection/create', [CollectionController::class, 'create'])->name('collection.create');
+    Route::post('/collection', [CollectionController::class, 'store'])->name('collection.store');
+    Route::get('/collection/{item}', [CollectionController::class, 'show'])->name('collection.show');
+    Route::get('/collection/{item}/edit', [CollectionController::class, 'edit'])->name('collection.edit');
+    Route::put('/collection/{item}', [CollectionController::class, 'update'])->name('collection.update');
+    Route::delete('/collection/{item}', [CollectionController::class, 'destroy'])->name('collection.destroy');
+    
+    // Collection API routes
+    Route::post('/collection/scan-barcode', [CollectionController::class, 'scanBarcode'])->name('collection.scan-barcode');
+    Route::get('/collection/search', [CollectionController::class, 'search'])->name('collection.search');
+    Route::post('/collection/share', [CollectionController::class, 'createShareLink'])->name('collection.share');
+    Route::get('/collection/export/csv', [CollectionController::class, 'exportCsv'])->name('collection.export-csv');
+    Route::post('/collection/import/csv', [CollectionController::class, 'importCsv'])->name('collection.import-csv');
+    Route::get('/collection/statistics', [CollectionController::class, 'statistics'])->name('collection.statistics');
+    Route::post('/collection/bulk-operation', [CollectionController::class, 'bulkOperation'])->name('collection.bulk-operation');
+});
+
+// Shared collection routes
+Route::get('/collection/shared/{token}', [CollectionController::class, 'showShared'])->name('collection.shared');
 
 // Notification routes
 Route::middleware('auth')->group(function () {

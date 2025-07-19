@@ -31,7 +31,6 @@ class User extends Authenticatable
         'totp_secret',
         'totp_enabled',
         'totp_backup_codes',
-        'email_verified',
         'email_verification_token',
         'email_verification_expires',
         'avatar_url',
@@ -70,7 +69,6 @@ class User extends Authenticatable
             'email_verification_expires' => 'datetime',
             'is_active' => 'boolean',
             'totp_enabled' => 'boolean',
-            'email_verified' => 'boolean',
             'notifications_enabled' => 'boolean',
             'email_notifications' => 'boolean',
             'push_notifications' => 'boolean',
@@ -108,5 +106,13 @@ class User extends Authenticatable
     public function isLocked()
     {
         return $this->locked_until && $this->locked_until->isFuture();
+    }
+
+    /**
+     * Check if user's email is verified.
+     */
+    public function isEmailVerified()
+    {
+        return !is_null($this->email_verified_at);
     }
 }
