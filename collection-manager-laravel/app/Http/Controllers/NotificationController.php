@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use App\Services\PushNotificationService;
+use App\Http\Resources\VapidKeyResource;
 
 class NotificationController extends Controller
 {
@@ -20,8 +21,8 @@ class NotificationController extends Controller
      */
     public function getVapidKey()
     {
-        return response()->json([
-            'publicKey' => $this->pushService->getVapidPublicKey()
+        return new VapidKeyResource([
+            'public_key' => $this->pushService->getVapidPublicKey()
         ]);
     }
 
@@ -48,7 +49,10 @@ class NotificationController extends Controller
         // Update user's push notification preference
         $user->update(['push_notifications' => true]);
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Succesvol geabonneerd op push notificaties.'
+        ]);
     }
 
     /**
@@ -75,7 +79,10 @@ class NotificationController extends Controller
             $user->update(['push_notifications' => false]);
         }
 
-        return response()->json(['success' => true]);
+        return response()->json([
+            'success' => true,
+            'message' => 'Succesvol afgemeld van push notificaties.'
+        ]);
     }
 
     /**
@@ -122,9 +129,9 @@ class NotificationController extends Controller
 
         return response()->json([
             'enabled' => $this->pushService->isEnabled(),
-            'userEnabled' => $user->push_notifications,
-            'subscriptionCount' => count($subscriptions),
-            'vapidPublicKey' => $this->pushService->getVapidPublicKey()
+            'user_enabled' => $user->push_notifications,
+            'subscription_count' => count($subscriptions),
+            'vapid_public_key' => $this->pushService->getVapidPublicKey()
         ]);
     }
 
