@@ -9,6 +9,7 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OAuthController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\DatabaseAdminController;
+use App\Http\Controllers\SetupController;
 
 // Authentication routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -71,6 +72,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications/settings', [NotificationController::class, 'settings'])->name('notifications.settings');
     Route::put('/notifications/preferences', [NotificationController::class, 'updatePreferences'])->name('notifications.preferences');
 });
+
+// Setup routes (must be before other routes)
+Route::get('/setup', [SetupController::class, 'checkSetup'])->name('setup.check');
+Route::get('/setup/welcome', [SetupController::class, 'welcome'])->name('setup.welcome');
+Route::get('/setup/database', [SetupController::class, 'database'])->name('setup.database');
+Route::post('/setup/test-database', [SetupController::class, 'testDatabase'])->name('setup.test-database');
+Route::post('/setup/save-database', [SetupController::class, 'saveDatabase'])->name('setup.save-database');
+Route::get('/setup/admin', [SetupController::class, 'admin'])->name('setup.admin');
+Route::post('/setup/create-admin', [SetupController::class, 'createAdmin'])->name('setup.create-admin');
+Route::get('/setup/complete', [SetupController::class, 'complete'])->name('setup.complete');
+Route::get('/setup/upgrade', [SetupController::class, 'upgrade'])->name('setup.upgrade');
+Route::post('/setup/run-upgrade', [SetupController::class, 'runUpgrade'])->name('setup.run-upgrade');
 
 Route::get('/', function () {
     return view('welcome');

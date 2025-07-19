@@ -13,6 +13,12 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
             'admin' => \App\Http\Middleware\AdminMiddleware::class,
+            'setup' => \App\Http\Middleware\SetupMiddleware::class,
+        ]);
+        
+        // Apply setup middleware to web routes
+        $middleware->web(append: [
+            \App\Http\Middleware\SetupMiddleware::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
