@@ -22,7 +22,7 @@ class AdminMiddleware
         $user = auth()->user();
 
         // Check if user is admin or has admin permissions
-        if (!$user->isAdmin() && !$user->hasPermission('admin.access')) {
+        if (!$user->isAdmin() && !$user->hasPermissionTo('admin.access')) {
             abort(403, 'Toegang geweigerd. Administrator rechten vereist.');
         }
 
