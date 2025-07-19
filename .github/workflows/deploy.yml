@@ -144,7 +144,6 @@ jobs:
       run: chmod -R 777 storage bootstrap/cache
 
     - name: Deploy to Development
-      if: secrets.SSH_HOST != '' && secrets.SSH_USER != '' && secrets.SSH_PRIVATE_KEY != '' && secrets.DEPLOY_PATH != ''
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -234,7 +233,6 @@ jobs:
       run: chmod -R 777 storage bootstrap/cache
 
     - name: Deploy to Test
-      if: secrets.SSH_HOST != '' && secrets.SSH_USER != '' && secrets.SSH_PRIVATE_KEY != '' && secrets.DEPLOY_PATH != ''
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -324,7 +322,6 @@ jobs:
       run: chmod -R 777 storage bootstrap/cache
 
     - name: Deploy to Acceptance
-      if: secrets.SSH_HOST != '' && secrets.SSH_USER != '' && secrets.SSH_PRIVATE_KEY != '' && secrets.DEPLOY_PATH != ''
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -421,7 +418,6 @@ jobs:
         php artisan optimize
 
     - name: Deploy to Production
-      if: secrets.SSH_HOST != '' && secrets.SSH_USER != '' && secrets.SSH_PRIVATE_KEY != '' && secrets.DEPLOY_PATH != ''
       uses: appleboy/ssh-action@v1.0.3
       with:
         host: ${{ secrets.SSH_HOST }}
@@ -449,7 +445,6 @@ jobs:
 
     # FTP Deployment (for shared hosting) - Production only
     - name: Deploy to Production via FTP
-      if: secrets.PROD_FTP_SERVER != '' && secrets.PROD_FTP_USERNAME != '' && secrets.PROD_FTP_PASSWORD != '' && secrets.PROD_FTP_SERVER_DIR != ''
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
         server: ${{ secrets.PROD_FTP_SERVER }}
