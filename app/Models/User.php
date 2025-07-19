@@ -115,4 +115,12 @@ class User extends Authenticatable
     {
         return !is_null($this->email_verified_at);
     }
+
+    /**
+     * Get the shared links that belong to the user.
+     */
+    public function sharedLinks()
+    {
+        return $this->hasMany(SharedLink::class);
+    }
 }

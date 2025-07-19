@@ -106,4 +106,12 @@ class CollectionItem extends Model
     {
         return $query->where('platform', $platform);
     }
+
+    /**
+     * Get the shared links for this collection item.
+     */
+    public function sharedLinks()
+    {
+        return $this->hasMany(SharedLink::class, 'item_id');
+    }
 }
