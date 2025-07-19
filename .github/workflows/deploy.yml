@@ -174,7 +174,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: acceptance
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/extending_main_functionality') && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
         script: |
           echo "Starting Acceptance Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/acceptance
-          git pull origin main
+          git pull origin feature/extending_main_functionality
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
