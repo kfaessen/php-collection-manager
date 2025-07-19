@@ -101,7 +101,7 @@ class CollectionController extends Controller
     public function show(CollectionItem $item)
     {
         // Check if user can view this item
-        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermission('manage_all_collections')) {
+        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermissionTo('manage_all_collections')) {
             abort(403, 'Geen toegang tot dit item.');
         }
 
@@ -114,7 +114,7 @@ class CollectionController extends Controller
     public function edit(CollectionItem $item)
     {
         // Check if user can edit this item
-        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermission('manage_all_collections')) {
+        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermissionTo('manage_all_collections')) {
             abort(403, 'Geen toegang tot dit item.');
         }
 
@@ -127,7 +127,7 @@ class CollectionController extends Controller
     public function update(Request $request, CollectionItem $item)
     {
         // Check if user can edit this item
-        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermission('manage_all_collections')) {
+        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermissionTo('manage_all_collections')) {
             abort(403, 'Geen toegang tot dit item.');
         }
 
@@ -163,7 +163,7 @@ class CollectionController extends Controller
     public function destroy(CollectionItem $item)
     {
         // Check if user can delete this item
-        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermission('manage_all_collections')) {
+        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermissionTo('manage_all_collections')) {
             abort(403, 'Geen toegang tot dit item.');
         }
 
@@ -411,7 +411,7 @@ class CollectionController extends Controller
         $item = CollectionItem::findOrFail($request->item_id);
         
         // Check if user can share this item
-        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermission('manage_all_collections')) {
+        if ($item->user_id !== auth()->id() && !auth()->user()->hasPermissionTo('manage_all_collections')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Geen toegang tot dit item',

@@ -3,84 +3,89 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Facades\Validator;
+use App\Models\User;
 
 class ProfileController extends Controller
 {
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
+
     /**
-     * Show the user's profile.
+     * Show user profile
      */
     public function show()
     {
-        $user = auth()->user();
-        $user->load('groups', 'collectionItems');
-        
+        $user = Auth::user();
         return view('profile.show', compact('user'));
     }
 
     /**
-     * Update the user's profile.
+     * Update profile
      */
     public function update(Request $request)
     {
-        $user = auth()->user();
-
-        $validator = Validator::make($request->all(), [
-            'first_name' => 'required|string|max:100',
-            'last_name' => 'required|string|max:100',
-            'email' => 'required|email|unique:users,email,' . $user->id,
-            'preferred_language' => 'required|string|in:nl,en,de,fr,es',
-            'notifications_enabled' => 'boolean',
-            'email_notifications' => 'boolean',
-            'push_notifications' => 'boolean',
+        $user = Auth::user();
+        
+        $validated = $request->validate([
+            'name' => 'required|string|max:255',
+            'email' => 'required|string|email|max:255|unique:users,email,' . $user->id,
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator)->withInput();
-        }
+        $user->update($validated);
 
-        $user->update($request->only([
-            'first_name',
-            'last_name',
-            'email',
-            'preferred_language',
-            'notifications_enabled',
-            'email_notifications',
-            'push_notifications',
-        ]));
-
-        return back()->with('success', 'Profiel succesvol bijgewerkt!');
+        return back()->with('success', 'Profiel succesvol bijgewerkt.');
     }
 
     /**
-     * Change user password.
+     * Change password
      */
     public function changePassword(Request $request)
     {
-        $validator = Validator::make($request->all(), [
+        $request->validate([
             'current_password' => 'required|string',
-            'new_password' => 'required|string|min:8|confirmed',
+            'password' => 'required|string|min:8|confirmed',
         ]);
 
-        if ($validator->fails()) {
-            return back()->withErrors($validator);
+        $user = Auth::user();
+
+        if (!Hash::check($request->current_password, $user->password)) {
+            return back()->withErrors(['current_password' => 'Huidig wachtwoord is niet correct.']);
         }
 
-        $user = auth()->user();
-
-        // Check current password
-        if (!Hash::check($request->current_password, $user->password_hash)) {
-            return back()->withErrors([
-                'current_password' => 'Huidig wachtwoord is incorrect.',
-            ]);
-        }
-
-        // Update password
         $user->update([
-            'password_hash' => Hash::make($request->new_password),
+            'password' => Hash::make($request->password)
         ]);
 
-        return back()->with('success', 'Wachtwoord succesvol gewijzigd!');
+        return back()->with('success', 'Wachtwoord succesvol gewijzigd.');
+    }
+
+    /**
+     * Disable TOTP
+     */
+    public function disableTOTP(Request $request)
+    {
+        $request->validate([
+            'totp_code' => 'required|string|size:6',
+        ]);
+
+        $user = Auth::user();
+        
+        // Verify TOTP code
+        $totpService = app(\App\Services\TOTPService::class);
+        if (!$totpService->verifyCode($user->totp_secret, $request->totp_code)) {
+            return back()->withErrors(['totp_code' => 'Ongeldige authenticatie code.']);
+        }
+
+        $user->update([
+            'totp_enabled' => false,
+            'totp_secret' => null,
+            'totp_backup_codes' => null
+        ]);
+
+        return back()->with('success', 'Twee-factor authenticatie is uitgeschakeld.');
     }
 } 

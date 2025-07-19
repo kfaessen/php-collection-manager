@@ -17,8 +17,8 @@ class CollectionItem extends Model
     protected $fillable = [
         'user_id',
         'title',
-        'description',
         'type',
+        'description',
         'platform',
         'category',
         'condition_rating',
@@ -52,35 +52,6 @@ class CollectionItem extends Model
     }
 
     /**
-     * Scope a query to only include items of a specific type.
-     */
-    public function scopeOfType($query, $type)
-    {
-        return $query->where('type', $type);
-    }
-
-    /**
-     * Scope a query to only include items for a specific user.
-     */
-    public function scopeForUser($query, $userId)
-    {
-        return $query->where('user_id', $userId);
-    }
-
-    /**
-     * Scope a query to search items by title or description.
-     */
-    public function scopeSearch($query, $search)
-    {
-        return $query->where(function($q) use ($search) {
-            $q->where('title', 'like', "%{$search}%")
-              ->orWhere('description', 'like', "%{$search}%")
-              ->orWhere('platform', 'like', "%{$search}%")
-              ->orWhere('category', 'like', "%{$search}%");
-        });
-    }
-
-    /**
      * Get the formatted purchase price.
      */
     public function getFormattedPurchasePriceAttribute()
@@ -105,30 +76,34 @@ class CollectionItem extends Model
     }
 
     /**
-     * Check if item has a cover image.
+     * Scope a query to only include items for a specific user.
      */
-    public function hasCoverImage()
+    public function scopeForUser($query, $userId)
     {
-        return !empty($this->cover_image);
+        return $query->where('user_id', $userId);
     }
 
     /**
-     * Get the cover image URL or placeholder.
+     * Scope a query to only include items of a specific type.
      */
-    public function getCoverImageUrlAttribute()
+    public function scopeOfType($query, $type)
     {
-        if ($this->hasCoverImage()) {
-            return $this->cover_image;
-        }
-        
-        // Return placeholder based on type
-        return match($this->type) {
-            'game' => '/images/placeholder-game.png',
-            'film' => '/images/placeholder-film.png',
-            'serie' => '/images/placeholder-serie.png',
-            'book' => '/images/placeholder-book.png',
-            'music' => '/images/placeholder-music.png',
-            default => '/images/placeholder.png',
-        };
+        return $query->where('type', $type);
     }
-} 
+
+    /**
+     * Scope a query to only include items in a specific category.
+     */
+    public function scopeInCategory($query, $category)
+    {
+        return $query->where('category', $category);
+    }
+
+    /**
+     * Scope a query to only include items on a specific platform.
+     */
+    public function scopeOnPlatform($query, $platform)
+    {
+        return $query->where('platform', $platform);
+    }
+}
