@@ -25,10 +25,12 @@ class OAuthController extends Controller
                 ->withErrors(['email' => 'OAuth login is niet beschikbaar.']);
         }
 
-        $redirectUri = route('oauth.callback', $provider);
-        $authUrl = $this->oauthService->getAuthUrl($provider, $redirectUri);
-
-        return redirect($authUrl);
+        try {
+            return $this->oauthService->redirect($provider);
+        } catch (\Exception $e) {
+            return redirect()->route('login')
+                ->withErrors(['email' => 'OAuth redirect mislukt: ' . $e->getMessage()]);
+        }
     }
 
     /**
@@ -41,38 +43,13 @@ class OAuthController extends Controller
                 ->withErrors(['email' => 'OAuth login is niet beschikbaar.']);
         }
 
-        // Verify state parameter
-        $state = $request->get('state');
-        if (!$this->oauthService->verifyState($state)) {
-            return redirect()->route('login')
-                ->withErrors(['email' => 'Ongeldige OAuth state.']);
-        }
-
-        // Check for authorization code
-        $code = $request->get('code');
-        if (!$code) {
-            return redirect()->route('login')
-                ->withErrors(['email' => 'OAuth autorisatie mislukt.']);
-        }
-
         try {
-            // Exchange code for access token
-            $redirectUri = route('oauth.callback', $provider);
-            $tokenData = $this->oauthService->getAccessToken($provider, $code, $redirectUri);
-            $accessToken = $tokenData['access_token'];
-
-            // Get user information
-            $userInfo = $this->oauthService->getUserInfo($provider, $accessToken);
-
-            // Find or create user
-            $user = $this->oauthService->findOrCreateUser($userInfo, $provider);
+            // Handle OAuth callback and get user
+            $user = $this->oauthService->callback($provider);
 
             // Login user
             Auth::login($user);
             $request->session()->regenerate();
-
-            // Clear OAuth session data
-            $this->oauthService->clearSession();
 
             // Redirect based on user role
             if ($user->hasRole('admin') || $user->hasPermission('admin.access')) {
@@ -82,9 +59,6 @@ class OAuthController extends Controller
             return redirect()->intended('/');
 
         } catch (\Exception $e) {
-            // Clear OAuth session data
-            $this->oauthService->clearSession();
-
             return redirect()->route('login')
                 ->withErrors(['email' => 'OAuth login mislukt: ' . $e->getMessage()]);
         }
