@@ -76,21 +76,25 @@ php artisan view:cache
 # Enhanced Database Setup with Multiple Connection Methods
 print_status "Setting up database..."
 
-# Function to test MySQL connection
+# Function to test MySQL connection with better error handling
 test_mysql_connection() {
     local host=$1
     local user=$2
     local password=$3
     local extra_args=$4
     
+    # Try with password if provided
     if [ -n "$password" ]; then
-        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "SELECT 1;" 2>/dev/null
-    else
-        mysql -h "$host" -u "$user" $extra_args -e "SELECT 1;" 2>/dev/null
+        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
     fi
+    
+    # Try without password
+    mysql -h "$host" -u "$user" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
+    
+    return 1
 }
 
-# Function to create database
+# Function to create database with better error handling
 create_database() {
     local host=$1
     local user=$2
@@ -98,11 +102,15 @@ create_database() {
     local database=$4
     local extra_args=$5
     
+    # Try with password if provided
     if [ -n "$password" ]; then
-        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;"
-    else
-        mysql -h "$host" -u "$user" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;"
+        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
     fi
+    
+    # Try without password
+    mysql -h "$host" -u "$user" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
+    
+    return 1
 }
 
 DB_CONNECTED=false
@@ -113,83 +121,113 @@ DB_HOST=$(grep "^DB_HOST=" .env | cut -d '=' -f2)
 DB_USERNAME=$(grep "^DB_USERNAME=" .env | cut -d '=' -f2)
 DB_PASSWORD=$(grep "^DB_PASSWORD=" .env | cut -d '=' -f2)
 DB_DATABASE=$(grep "^DB_DATABASE=" .env | cut -d '=' -f2)
+DB_CONNECTION=$(grep "^DB_CONNECTION=" .env | cut -d '=' -f2)
 
 # Default values if not set
 DB_HOST=${DB_HOST:-127.0.0.1}
 DB_USERNAME=${DB_USERNAME:-root}
 DB_DATABASE=${DB_DATABASE:-collection_manager}
+DB_CONNECTION=${DB_CONNECTION:-mysql}
 
-print_status "Database config: Host=$DB_HOST, User=$DB_USERNAME, Database=$DB_DATABASE"
+print_status "Database config: Connection=$DB_CONNECTION, Host=$DB_HOST, User=$DB_USERNAME, Database=$DB_DATABASE"
 
-# Check if MySQL/MariaDB service is running (for VPS)
-if command -v systemctl &> /dev/null; then
-    if systemctl is-active --quiet mysql 2>/dev/null; then
-        print_success "MySQL service is running"
-    elif systemctl is-active --quiet mariadb 2>/dev/null; then
-        print_success "MariaDB service is running"
-    else
-        print_warning "MySQL/MariaDB service not running. Trying to start..."
-        systemctl start mysql 2>/dev/null || systemctl start mariadb 2>/dev/null || true
-        sleep 3
-    fi
-fi
-
-# Method 1: Standard TCP connection
-print_status "Testing standard MySQL connection..."
-if test_mysql_connection "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD"; then
-    print_success "Standard MySQL connection successful"
+# Check if we should skip database setup for SQLite
+if [ "$DB_CONNECTION" = "sqlite" ]; then
+    print_status "Using SQLite database - skipping MySQL setup"
     DB_CONNECTED=true
-    if create_database "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "$DB_DATABASE"; then
-        print_success "Database '$DB_DATABASE' created/verified"
-        DB_CREATED=true
-    fi
-fi
-
-# Method 2: Socket connections (for localhost)
-if [ "$DB_CONNECTED" = false ] && [ "$DB_HOST" = "127.0.0.1" ] || [ "$DB_HOST" = "localhost" ]; then
-    print_status "Trying socket connections..."
-    for socket in /var/lib/mysql/mysql.sock /tmp/mysql.sock /var/run/mysqld/mysqld.sock; do
-        if [ -S "$socket" ]; then
-            print_status "Testing socket: $socket"
-            if test_mysql_connection "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "--socket=$socket"; then
-                print_success "Socket connection successful: $socket"
-                DB_CONNECTED=true
-                if create_database "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "$DB_DATABASE" "--socket=$socket"; then
-                    print_success "Database '$DB_DATABASE' created/verified via socket"
-                    DB_CREATED=true
-                fi
-                break
-            fi
+    DB_CREATED=true
+else
+    # Check if MySQL/MariaDB service is running (for VPS)
+    if command -v systemctl &> /dev/null; then
+        if systemctl is-active --quiet mysql 2>/dev/null; then
+            print_success "MySQL service is running"
+        elif systemctl is-active --quiet mariadb 2>/dev/null; then
+            print_success "MariaDB service is running"
+        else
+            print_warning "MySQL/MariaDB service not running. Trying to start..."
+            systemctl start mysql 2>/dev/null || systemctl start mariadb 2>/dev/null || true
+            sleep 3
         fi
-    done
-fi
+    fi
 
-# Method 3: Try without password (for fresh MySQL installations)
-if [ "$DB_CONNECTED" = false ]; then
-    print_status "Trying connection without password..."
-    if test_mysql_connection "$DB_HOST" "$DB_USERNAME" ""; then
-        print_success "MySQL connection without password successful"
+    # Method 1: Standard TCP connection
+    print_status "Testing standard MySQL connection..."
+    if test_mysql_connection "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD"; then
+        print_success "Standard MySQL connection successful"
         DB_CONNECTED=true
-        if create_database "$DB_HOST" "$DB_USERNAME" "" "$DB_DATABASE"; then
+        if create_database "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "$DB_DATABASE"; then
             print_success "Database '$DB_DATABASE' created/verified"
             DB_CREATED=true
         fi
     fi
-fi
 
-# If still no connection, provide guidance
-if [ "$DB_CONNECTED" = false ]; then
-    print_error "Could not connect to MySQL/MariaDB database!"
-    print_warning "Please check:"
-    print_warning "1. MySQL/MariaDB service is running: systemctl status mysql"
-    print_warning "2. Database credentials in .env file are correct"
-    print_warning "3. Database host is accessible: $DB_HOST"
-    print_warning "4. User has proper permissions: $DB_USERNAME"
-    print_warning ""
-    print_warning "For OVH shared hosting, use the database credentials from your OVH control panel"
-    print_warning "For OVH VPS, you may need to install MySQL: sudo apt install mysql-server"
-    print_warning ""
-    print_status "Continuing with Laravel migrations (they may create the database automatically)..."
+    # Method 2: Socket connections (for localhost)
+    if [ "$DB_CONNECTED" = false ] && ([ "$DB_HOST" = "127.0.0.1" ] || [ "$DB_HOST" = "localhost" ]); then
+        print_status "Trying socket connections..."
+        for socket in /var/lib/mysql/mysql.sock /tmp/mysql.sock /var/run/mysqld/mysqld.sock; do
+            if [ -S "$socket" ]; then
+                print_status "Testing socket: $socket"
+                if test_mysql_connection "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "--socket=$socket"; then
+                    print_success "Socket connection successful: $socket"
+                    DB_CONNECTED=true
+                    if create_database "$DB_HOST" "$DB_USERNAME" "$DB_PASSWORD" "$DB_DATABASE" "--socket=$socket"; then
+                        print_success "Database '$DB_DATABASE' created/verified via socket"
+                        DB_CREATED=true
+                    fi
+                    break
+                fi
+            fi
+        done
+    fi
+
+    # Method 3: Try without password (for fresh MySQL installations)
+    if [ "$DB_CONNECTED" = false ]; then
+        print_status "Trying connection without password..."
+        if test_mysql_connection "$DB_HOST" "$DB_USERNAME" ""; then
+            print_success "MySQL connection without password successful"
+            DB_CONNECTED=true
+            if create_database "$DB_HOST" "$DB_USERNAME" "" "$DB_DATABASE"; then
+                print_success "Database '$DB_DATABASE' created/verified"
+                DB_CREATED=true
+            fi
+        fi
+    fi
+
+    # Method 4: Try with different hosts
+    if [ "$DB_CONNECTED" = false ]; then
+        print_status "Trying alternative hosts..."
+        for alt_host in localhost 127.0.0.1; do
+            if [ "$alt_host" != "$DB_HOST" ]; then
+                print_status "Testing host: $alt_host"
+                if test_mysql_connection "$alt_host" "$DB_USERNAME" "$DB_PASSWORD"; then
+                    print_success "MySQL connection successful with host: $alt_host"
+                    DB_CONNECTED=true
+                    if create_database "$alt_host" "$DB_USERNAME" "$DB_PASSWORD" "$DB_DATABASE"; then
+                        print_success "Database '$DB_DATABASE' created/verified"
+                        DB_CREATED=true
+                    fi
+                    break
+                fi
+            fi
+        done
+    fi
+
+    # If still no connection, provide guidance
+    if [ "$DB_CONNECTED" = false ]; then
+        print_error "Could not connect to MySQL/MariaDB database!"
+        print_warning "Please check:"
+        print_warning "1. MySQL/MariaDB service is running: systemctl status mysql"
+        print_warning "2. Database credentials in .env file are correct"
+        print_warning "3. Database host is accessible: $DB_HOST"
+        print_warning "4. User has proper permissions: $DB_USERNAME"
+        print_warning ""
+        print_warning "For OVH shared hosting, use the database credentials from your OVH control panel"
+        print_warning "For OVH VPS, you may need to install MySQL: sudo apt install mysql-server"
+        print_warning ""
+        print_warning "Alternative: Switch to SQLite by setting DB_CONNECTION=sqlite in .env"
+        print_warning ""
+        print_status "Continuing with Laravel migrations (they may create the database automatically)..."
+    fi
 fi
 
 print_status "Running database migrations..."
@@ -203,6 +241,7 @@ else
     print_warning "3. Database server not running"
     print_warning ""
     print_warning "Please fix the database issues and run: php artisan migrate --force"
+    print_warning "Or switch to SQLite by setting DB_CONNECTION=sqlite in .env"
 fi
 
 print_status "Running database seeders..."
