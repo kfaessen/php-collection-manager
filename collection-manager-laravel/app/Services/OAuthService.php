@@ -5,7 +5,7 @@ namespace App\Services;
 use Laravel\Socialite\Facades\Socialite;
 use Illuminate\Support\Str;
 use App\Models\User;
-use App\Models\Role;
+use Spatie\Permission\Models\Role;
 
 class OAuthService
 {
@@ -79,7 +79,7 @@ class OAuthService
         // Assign default user role
         $userRole = Role::where('name', 'user')->first();
         if ($userRole) {
-            $user->roles()->attach($userRole);
+            $user->assignRole($userRole);
         }
 
         return $user;

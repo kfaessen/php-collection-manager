@@ -5,8 +5,8 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use App\Models\User;
-use App\Models\Role;
-use App\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Support\Facades\Hash;
 
 class RolesAndPermissionsSeeder extends Seeder
@@ -42,6 +42,7 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach ($permissions as $name => $description) {
             Permission::create([
                 'name' => $name,
+                'display_name' => $description,
                 'description' => $description,
             ]);
         }
@@ -66,11 +67,11 @@ class RolesAndPermissionsSeeder extends Seeder
         $userRole = Role::where('name', 'user')->first();
 
         // Admin gets all permissions
-        $adminRole->permissions()->attach(Permission::all());
+        $adminRole->givePermissionTo(Permission::all());
 
         // Moderator gets most permissions except admin access
         $moderatorPermissions = Permission::whereNotIn('name', ['admin.access'])->get();
-        $moderatorRole->permissions()->attach($moderatorPermissions);
+        $moderatorRole->givePermissionTo($moderatorPermissions);
 
         // User gets basic permissions
         $userPermissions = Permission::whereIn('name', [
@@ -79,7 +80,7 @@ class RolesAndPermissionsSeeder extends Seeder
             'collections.edit',
             'collections.delete'
         ])->get();
-        $userRole->permissions()->attach($userPermissions);
+        $userRole->givePermissionTo($userPermissions);
 
         // Create default admin user
         $adminUser = User::create([
@@ -89,7 +90,7 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Assign admin role to admin user
-        $adminUser->roles()->attach($adminRole);
+        $adminUser->assignRole($adminRole);
 
         // Create a test user
         $testUser = User::create([
@@ -99,6 +100,6 @@ class RolesAndPermissionsSeeder extends Seeder
         ]);
 
         // Assign user role to test user
-        $testUser->roles()->attach($userRole);
+        $testUser->assignRole($userRole);
     }
 }

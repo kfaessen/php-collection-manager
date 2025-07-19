@@ -3,8 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
-use App\Models\Role;
-use App\Models\Permission;
+use Spatie\Permission\Models\Role;
+use Spatie\Permission\Models\Permission;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Validator;
@@ -107,7 +107,7 @@ class AdminController extends Controller
         ]);
 
         if ($request->has('roles')) {
-            $user->roles()->attach($request->roles);
+            $user->assignRole($request->roles);
         }
 
         return redirect()->route('admin.users.index')
@@ -161,7 +161,7 @@ class AdminController extends Controller
             $user->update(['password' => Hash::make($request->password)]);
         }
 
-        $user->roles()->sync($request->roles ?? []);
+        $user->syncRoles($request->roles ?? []);
 
         return redirect()->route('admin.users.index')
             ->with('success', 'Gebruiker succesvol bijgewerkt.');
@@ -206,9 +206,7 @@ class AdminController extends Controller
      */
     public function createRole()
     {
-        $permissions = Permission::orderBy('module')->orderBy('display_name')->get()
-            ->groupBy('module');
-        
+        $permissions = Permission::all();
         return view('admin.roles.create', compact('permissions'));
     }
 
@@ -220,7 +218,7 @@ class AdminController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:roles',
             'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:500',
             'permissions' => 'array',
             'permissions.*' => 'exists:permissions,id',
         ]);
@@ -238,7 +236,7 @@ class AdminController extends Controller
         ]);
 
         if ($request->has('permissions')) {
-            $role->permissions()->attach($request->permissions);
+            $role->syncPermissions($request->permissions);
         }
 
         return redirect()->route('admin.roles.index')
@@ -250,8 +248,7 @@ class AdminController extends Controller
      */
     public function editRole(Role $role)
     {
-        $permissions = Permission::orderBy('module')->orderBy('display_name')->get()
-            ->groupBy('module');
+        $permissions = Permission::all();
         $rolePermissions = $role->permissions->pluck('id')->toArray();
         
         return view('admin.roles.edit', compact('role', 'permissions', 'rolePermissions'));
@@ -265,7 +262,7 @@ class AdminController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255', Rule::unique('roles')->ignore($role->id)],
             'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
+            'description' => 'nullable|string|max:500',
             'permissions' => 'array',
             'permissions.*' => 'exists:permissions,id',
         ]);
@@ -282,7 +279,7 @@ class AdminController extends Controller
             'description' => $request->description,
         ]);
 
-        $role->permissions()->sync($request->permissions ?? []);
+        $role->syncPermissions($request->permissions ?? []);
 
         return redirect()->route('admin.roles.index')
             ->with('success', 'Rol succesvol bijgewerkt.');
@@ -293,14 +290,9 @@ class AdminController extends Controller
      */
     public function destroyRole(Role $role)
     {
-        if ($role->isSystem()) {
+        if ($role->name === 'admin') {
             return redirect()->route('admin.roles.index')
-                ->with('error', 'Systeemrollen kunnen niet worden verwijderd.');
-        }
-
-        if ($role->users()->count() > 0) {
-            return redirect()->route('admin.roles.index')
-                ->with('error', 'Rol kan niet worden verwijderd omdat er nog gebruikers aan gekoppeld zijn.');
+                ->with('error', 'De admin rol kan niet worden verwijderd.');
         }
 
         $role->delete();
@@ -314,23 +306,17 @@ class AdminController extends Controller
      */
     public function permissions()
     {
-        $permissions = Permission::withCount('roles')
+        $permissions = Permission::withCount(['roles', 'users'])
             ->when(request('search'), function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
                       ->orWhere('display_name', 'like', "%{$search}%");
                 });
             })
-            ->when(request('module'), function ($query, $module) {
-                $query->where('module', $module);
-            })
-            ->orderBy('module')
-            ->orderBy('display_name')
+            ->latest()
             ->paginate(15);
 
-        $modules = Permission::getModules();
-
-        return view('admin.permissions.index', compact('permissions', 'modules'));
+        return view('admin.permissions.index', compact('permissions'));
     }
 
     /**
@@ -338,9 +324,7 @@ class AdminController extends Controller
      */
     public function createPermission()
     {
-        $modules = Permission::getModules();
-        
-        return view('admin.permissions.create', compact('modules'));
+        return view('admin.permissions.create');
     }
 
     /**
@@ -351,8 +335,7 @@ class AdminController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255|unique:permissions',
             'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'module' => 'required|string|max:100',
+            'description' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -365,7 +348,6 @@ class AdminController extends Controller
             'name' => $request->name,
             'display_name' => $request->display_name,
             'description' => $request->description,
-            'module' => $request->module,
         ]);
 
         return redirect()->route('admin.permissions.index')
@@ -377,9 +359,7 @@ class AdminController extends Controller
      */
     public function editPermission(Permission $permission)
     {
-        $modules = Permission::getModules();
-        
-        return view('admin.permissions.edit', compact('permission', 'modules'));
+        return view('admin.permissions.edit', compact('permission'));
     }
 
     /**
@@ -390,8 +370,7 @@ class AdminController extends Controller
         $validator = Validator::make($request->all(), [
             'name' => ['required', 'string', 'max:255', Rule::unique('permissions')->ignore($permission->id)],
             'display_name' => 'required|string|max:255',
-            'description' => 'nullable|string',
-            'module' => 'required|string|max:100',
+            'description' => 'nullable|string|max:500',
         ]);
 
         if ($validator->fails()) {
@@ -404,7 +383,6 @@ class AdminController extends Controller
             'name' => $request->name,
             'display_name' => $request->display_name,
             'description' => $request->description,
-            'module' => $request->module,
         ]);
 
         return redirect()->route('admin.permissions.index')
@@ -416,11 +394,6 @@ class AdminController extends Controller
      */
     public function destroyPermission(Permission $permission)
     {
-        if ($permission->roles()->count() > 0) {
-            return redirect()->route('admin.permissions.index')
-                ->with('error', 'Permissie kan niet worden verwijderd omdat er nog rollen aan gekoppeld zijn.');
-        }
-
         $permission->delete();
 
         return redirect()->route('admin.permissions.index')

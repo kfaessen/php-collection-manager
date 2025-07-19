@@ -2,15 +2,14 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles;
 
 class User extends Authenticatable
 {
-    /** @use HasFactory<\Database\Factories\UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory, Notifiable, HasRoles;
 
     /**
      * The attributes that are mass assignable.
@@ -77,97 +76,6 @@ class User extends Authenticatable
             'push_notifications' => 'boolean',
             'totp_backup_codes' => 'array',
         ];
-    }
-
-    /**
-     * Get the user's roles.
-     */
-    public function roles()
-    {
-        return $this->belongsToMany(Role::class);
-    }
-
-    /**
-     * Get the user's permissions through roles.
-     */
-    public function permissions()
-    {
-        return $this->roles()->with('permissions')->get()->flatMap(function ($role) {
-            return $role->permissions;
-        });
-    }
-
-    /**
-     * Check if user has a specific permission.
-     */
-    public function hasPermission($permission)
-    {
-        if (is_string($permission)) {
-            return $this->permissions()->contains('name', $permission);
-        }
-        return $this->permissions()->contains($permission);
-    }
-
-    /**
-     * Check if user has any of the given permissions.
-     */
-    public function hasAnyPermission($permissions)
-    {
-        if (is_string($permissions)) {
-            return $this->hasPermission($permissions);
-        }
-        
-        foreach ($permissions as $permission) {
-            if ($this->hasPermission($permission)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Check if user has all of the given permissions.
-     */
-    public function hasAllPermissions($permissions)
-    {
-        if (is_string($permissions)) {
-            return $this->hasPermission($permissions);
-        }
-        
-        foreach ($permissions as $permission) {
-            if (!$this->hasPermission($permission)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /**
-     * Check if user has a specific role.
-     */
-    public function hasRole($role)
-    {
-        if (is_string($role)) {
-            return $this->roles()->where('name', $role)->exists();
-        }
-        return $this->roles()->contains($role);
-    }
-
-    /**
-     * Check if user has any of the given roles.
-     */
-    public function hasAnyRole($roles)
-    {
-        if (is_string($roles)) {
-            return $this->hasRole($roles);
-        }
-        
-        foreach ($roles as $role) {
-            if ($this->hasRole($role)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     /**
