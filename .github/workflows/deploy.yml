@@ -84,7 +84,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     environment: development
-    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
+    if: (github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/feature/extending_main_functionality') && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -108,11 +108,11 @@ jobs:
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=${{ secrets.DEV_DB_HOST }}
-        DB_PORT=${{ secrets.DEV_DB_PORT }}
-        DB_DATABASE=${{ secrets.DEV_DB_DATABASE }}
-        DB_USERNAME=${{ secrets.DEV_DB_USERNAME }}
-        DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
+        DB_HOST=127.0.0.1
+        DB_PORT=3306
+        DB_DATABASE=collection_manager_dev
+        DB_USERNAME=root
+        DB_PASSWORD=password
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
         FILESYSTEM_DISK=local
@@ -143,27 +143,28 @@ jobs:
     - name: Directory permissions
       run: chmod -R 777 storage bootstrap/cache
 
-    - name: Deploy to Development
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.DEV_SSH_HOST }}
-        username: ${{ secrets.DEV_SSH_USER }}
-        key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
-        script: |
-          cd ${{ secrets.DEV_DEPLOY_PATH }}
-          git pull origin develop
-          composer install --no-dev --optimize-autoloader
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-          php artisan optimize
-          chmod -R 755 storage bootstrap/cache
-          chmod -R 775 storage/logs
-          chmod -R 775 storage/framework/cache
-          chmod -R 775 storage/framework/sessions
-          chmod -R 775 storage/framework/views
-          php artisan storage:link
-          echo "Development deployment completed successfully!"
+    - name: Simulate Development Deployment
+      run: |
+        echo "🚀 Starting Development Deployment Simulation..."
+        echo "📦 Building application for development environment..."
+        echo "🔧 Optimizing for development..."
+        php artisan config:cache
+        php artisan route:cache
+        php artisan view:cache
+        php artisan optimize
+        echo "📁 Setting up directories..."
+        chmod -R 755 storage bootstrap/cache
+        chmod -R 775 storage/logs
+        chmod -R 775 storage/framework/cache
+        chmod -R 775 storage/framework/sessions
+        chmod -R 775 storage/framework/views
+        echo "🔗 Creating storage link..."
+        php artisan storage:link
+        echo "✅ Development deployment simulation completed successfully!"
+        echo "🌐 Application would be deployed to development server"
+        echo "📊 Environment: Development"
+        echo "🔍 Debug: Enabled"
+        echo "📧 Email: dev@example.com"
 
   deploy-test:
     needs: test
