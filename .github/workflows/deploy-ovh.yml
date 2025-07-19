@@ -41,13 +41,7 @@ jobs:
     - name: Directory permissions
       run: chmod -R 777 storage bootstrap/cache
 
-    - name: Create database
-      run: |
-        mysql -u root -ppassword -e "CREATE DATABASE IF NOT EXISTS collection_manager_test;"
-        mysql -u root -ppassword -e "GRANT ALL PRIVILEGES ON collection_manager_test.* TO 'root'@'%';"
-        mysql -u root -ppassword -e "FLUSH PRIVILEGES;"
-
-    - name: Configure database
+    - name: Configure database for testing
       run: |
         php artisan config:cache
         php artisan config:set database.connections.mysql.host 127.0.0.1
@@ -55,12 +49,6 @@ jobs:
         php artisan config:set database.connections.mysql.database collection_manager_test
         php artisan config:set database.connections.mysql.username root
         php artisan config:set database.connections.mysql.password password
-
-    - name: Execute migrations
-      run: php artisan migrate --force
-
-    - name: Execute seeders
-      run: php artisan db:seed --force
 
     - name: Run tests
       run: php artisan test
