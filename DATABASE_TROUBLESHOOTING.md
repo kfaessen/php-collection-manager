@@ -60,31 +60,30 @@ sudo apt install mysql-server
 sudo mysql_secure_installation
 ```
 
-## SQLite Fallback
+## Database Admin Interface
 
-Als MySQL niet beschikbaar is, kun je SQLite gebruiken:
+Als MySQL problemen hebt, gebruik de database admin interface:
 
-### 1. Gebruik SQLite Deployment Script
-```bash
-chmod +x deploy-ovh-sqlite.sh
-./deploy-ovh-sqlite.sh
-```
+### 1. Toegang tot Database Admin
+- Ga naar `/admin/database` in je browser
+- Log in met admin rechten
+- Test de database connectie
+- Maak database aan indien nodig
 
-### 2. Handmatige SQLite Configuratie
-```env
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-```
+### 2. Database Acties via Admin Interface
+- **Test Connectie**: Controleer of database bereikbaar is
+- **Database Aanmaken**: Maak nieuwe database aan
+- **Run Migrations**: Voer database migraties uit
+- **Run Seeders**: Vul database met test data
+- **Refresh Database**: Reset en herstel database
+- **Reset Database**: Verwijder alle data (voorzichtig!)
 
-```bash
-# Maak SQLite database
-mkdir -p database
-touch database/database.sqlite
-chmod 664 database/database.sqlite
-
-# Run migrations
-php artisan migrate --force
-```
+### 3. Database Configuratie
+De admin interface toont:
+- Huidige database configuratie
+- Connectie status
+- Migratie status
+- Database tabellen en statistieken
 
 ## Database Permissies
 
@@ -99,11 +98,10 @@ GRANT ALL PRIVILEGES ON collection_manager.* TO 'username'@'%';
 FLUSH PRIVILEGES;
 ```
 
-### SQLite Permissies
+### Database Admin Permissies
 ```bash
-# Zorg dat de database directory schrijfbaar is
-chmod 755 database/
-chmod 664 database/database.sqlite
+# Zorg dat de admin gebruiker de juiste rechten heeft
+# Dit wordt automatisch ingesteld door de RolesAndPermissionsSeeder
 ```
 
 ## Debugging Tips
@@ -113,14 +111,12 @@ chmod 664 database/database.sqlite
 # Test MySQL connectie
 mysql -h $DB_HOST -u $DB_USERNAME -p$DB_PASSWORD -e "SELECT 1;"
 
-# Test SQLite connectie
-sqlite3 database/database.sqlite "SELECT 1;"
+# Of gebruik de admin interface: /admin/database
 ```
 
 ### 2. Controleer PHP Extensions
 ```bash
 php -m | grep -i mysql
-php -m | grep -i sqlite
 php -m | grep -i pdo
 ```
 
@@ -165,10 +161,10 @@ chmod +x deploy-ovh.sh
 ./deploy-ovh.sh
 ```
 
-### SQLite Fallback Deployment
+### Database Admin Interface
 ```bash
-chmod +x deploy-ovh-sqlite.sh
-./deploy-ovh-sqlite.sh
+# Gebruik de web interface op /admin/database
+# Voor handmatige database setup
 ```
 
 ### Handmatige Deployment
@@ -205,11 +201,7 @@ DB_USERNAME=root
 DB_PASSWORD=your_password
 ```
 
-### SQLite Configuratie
-```env
-DB_CONNECTION=sqlite
-DB_DATABASE=database/database.sqlite
-```
+
 
 ### OVH Shared Hosting
 ```env
@@ -228,5 +220,5 @@ Als je nog steeds problemen hebt:
 1. Controleer de Laravel logs: `storage/logs/laravel.log`
 2. Controleer de MySQL logs: `/var/log/mysql/error.log`
 3. Test de database connectie handmatig
-4. Gebruik SQLite als tijdelijke oplossing
+4. Gebruik de database admin interface
 5. Neem contact op met OVH support voor database toegang 

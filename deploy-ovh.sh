@@ -131,12 +131,7 @@ DB_CONNECTION=${DB_CONNECTION:-mysql}
 
 print_status "Database config: Connection=$DB_CONNECTION, Host=$DB_HOST, User=$DB_USERNAME, Database=$DB_DATABASE"
 
-# Check if we should skip database setup for SQLite
-if [ "$DB_CONNECTION" = "sqlite" ]; then
-    print_status "Using SQLite database - skipping MySQL setup"
-    DB_CONNECTED=true
-    DB_CREATED=true
-else
+# Database setup for MySQL/MariaDB only
     # Check if MySQL/MariaDB service is running (for VPS)
     if command -v systemctl &> /dev/null; then
         if systemctl is-active --quiet mysql 2>/dev/null; then
@@ -224,11 +219,10 @@ else
         print_warning "For OVH shared hosting, use the database credentials from your OVH control panel"
         print_warning "For OVH VPS, you may need to install MySQL: sudo apt install mysql-server"
         print_warning ""
-        print_warning "Alternative: Switch to SQLite by setting DB_CONNECTION=sqlite in .env"
+        print_warning "Alternative: Use the database admin interface to create the database manually"
         print_warning ""
         print_status "Continuing with Laravel migrations (they may create the database automatically)..."
     fi
-fi
 
 print_status "Running database migrations..."
 if php artisan migrate --force; then
@@ -241,7 +235,7 @@ else
     print_warning "3. Database server not running"
     print_warning ""
     print_warning "Please fix the database issues and run: php artisan migrate --force"
-    print_warning "Or switch to SQLite by setting DB_CONNECTION=sqlite in .env"
+    print_warning "Or use the database admin interface to manage the database"
 fi
 
 print_status "Running database seeders..."

@@ -8,6 +8,7 @@ use App\Http\Controllers\TOTPController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\OAuthController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\DatabaseAdminController;
 
 // Authentication routes
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
@@ -103,4 +104,16 @@ Route::prefix('admin')->name('admin.')->middleware(['auth', 'admin'])->group(fun
     Route::get('/permissions/{permission}/edit', [AdminController::class, 'editPermission'])->name('permissions.edit');
     Route::put('/permissions/{permission}', [AdminController::class, 'updatePermission'])->name('permissions.update');
     Route::delete('/permissions/{permission}', [AdminController::class, 'destroyPermission'])->name('permissions.destroy');
+    
+    // Database management
+    Route::get('/database', [DatabaseAdminController::class, 'index'])->name('database.index');
+    Route::post('/database/test-connection', [DatabaseAdminController::class, 'testConnection'])->name('database.test-connection');
+    Route::post('/database/create', [DatabaseAdminController::class, 'createDatabase'])->name('database.create');
+    Route::post('/database/migrate', [DatabaseAdminController::class, 'runMigrations'])->name('database.migrate');
+    Route::post('/database/seed', [DatabaseAdminController::class, 'runSeeders'])->name('database.seed');
+    Route::post('/database/reset', [DatabaseAdminController::class, 'resetDatabase'])->name('database.reset');
+    Route::post('/database/refresh', [DatabaseAdminController::class, 'refreshDatabase'])->name('database.refresh');
+    Route::get('/database/tables', [DatabaseAdminController::class, 'showTables'])->name('database.tables');
+    Route::get('/database/config', [DatabaseAdminController::class, 'getConfig'])->name('database.config');
+    Route::post('/database/test-config', [DatabaseAdminController::class, 'testConfig'])->name('database.test-config');
 });
