@@ -1,58 +1,103 @@
 {
-    "name": "collectie/manager",
-    "description": "PHP Collectiebeheer-app voor Games, Films en Series",
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
     "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
     "license": "MIT",
-    "authors": [
-        {
-            "name": "Collectiebeheer Team"
-        }
-    ],
-    "minimum-stability": "stable",
-    "prefer-stable": true,
     "require": {
-        "php": ">=7.4.0",
-        "ext-pdo": "*",
-        "ext-json": "*",
-        "ext-curl": "*"
-    },
-    "suggest": {
-        "phpmailer/phpmailer": "^6.8 - Voor e-mail functionaliteit (optioneel)",
-        "league/oauth2-google": "^4.0 - Voor Google OAuth login (optioneel)",
-        "league/oauth2-facebook": "^3.0 - Voor Facebook OAuth login (optioneel)"
+        "php": "^8.2",
+        "bacon/bacon-qr-code": "^3.0",
+        "laravel/framework": "^12.0",
+        "laravel/socialite": "^5.15",
+        "laravel/tinker": "^2.10.1",
+        "pragmarx/google2fa": "^8.0",
+        "spatie/laravel-permission": "^6.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^9.0"
+        "fakerphp/faker": "^1.23",
+        "laravel/pail": "^1.2.2",
+        "laravel/pint": "^1.13",
+        "laravel/sail": "^1.41",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^11.5.3"
     },
     "autoload": {
         "psr-4": {
-            "CollectionManager\\": "includes/"
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
         }
     },
     "scripts": {
-        "test": "phpunit",
-        "check-syntax": "find . -name '*.php' -not -path './vendor/*' -exec php -l {} \\;",
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force",
+            "@php artisan migrate --force --ansi",
+            "@php artisan db:seed --force --ansi"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi",
+            "@php artisan db:seed --ansi"
+        ],
         "deploy": [
-            "echo 'Running deployment checks...'",
-            "@check-syntax"
+            "@php artisan config:cache",
+            "@php artisan route:cache",
+            "@php artisan view:cache",
+            "@php artisan migrate --force",
+            "@php artisan db:seed --force",
+            "@php artisan optimize"
+        ],
+        "deploy-ovh": [
+            "@php artisan config:clear",
+            "@php artisan route:clear",
+            "@php artisan view:clear",
+            "@php artisan cache:clear",
+            "@php artisan config:cache",
+            "@php artisan route:cache",
+            "@php artisan view:cache",
+            "@php artisan migrate --force",
+            "@php artisan db:seed --force",
+            "@php artisan optimize",
+            "@php artisan storage:link"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+        ],
+        "test": [
+            "@php artisan config:clear --ansi",
+            "@php artisan test"
         ]
+    },
+    "extra": {
+        "laravel": {
+            "dont-discover": []
+        }
     },
     "config": {
         "optimize-autoloader": true,
+        "preferred-install": "dist",
         "sort-packages": true,
         "allow-plugins": {
-            "composer/package-versions-deprecated": true
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
         }
     },
-    "extra": {
-        "deployment": {
-            "environments": ["dev", "tst", "acc", "prd"],
-            "prefix-mapping": {
-                "dev": "dev_",
-                "tst": "tst_", 
-                "acc": "acc_",
-                "prd": "prd_"
-            }
-        }
-    }
-} 
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

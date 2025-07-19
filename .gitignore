@@ -1,123 +1,24 @@
-# Dependency directories
-vendor/
-node_modules/
-bower_components/
-
-# Environment and Configuration Files
-.env
-.env.*
-!.env.template
-
-# Log Files
 *.log
-logs/
-log/
-
-# Cache and Temporary Files
-cache/
-tmp/
-temp/
-.cache/
-
-# OS Generated Files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
-
-# IDE and Editor Files
-.vscode/
-.idea/
-.sublime-project
-.sublime-workspace
-*.swp
-*.swo
-*~
-
-# Build and Deployment Artifacts
-build-info.json
-deployment.checksum
-deployment.log
-*.backup
-backups/
-maintenance.php
-
-# Test and Debug Files
-test_*.php
-debug_*.php
-*_test.php
-*_debug.php
-
-# Security Files
-.htaccess.backup
-ssh_keys/
-*.pem
-*.key
-!public_key_example
-
-# Upload Directories (keep structure, ignore content)
-uploads/*
-!uploads/.gitkeep
-!uploads/index.php
-
-# Coverage and Test Reports  
-coverage/
+.env
+.env.backup
+.env.production
+.phpactor.json
 .phpunit.result.cache
-phpunit.xml
-.coverage
-
-# Package Files
-*.tar.gz
-*.zip
-*.rar
-
-# Development Files
-.vagrant/
-Vagrantfile.local
-docker-compose.override.yml
-.docker/
-
-# Windows
+/.fleet
+/.idea
+/.nova
+/.phpunit.cache
+/.vscode
+/.zed
+/auth.json
+/node_modules
+/public/build
+/public/hot
+/public/storage
+/storage/*.key
+/storage/pail
+/vendor
+Homestead.json
+Homestead.yaml
 Thumbs.db
-ehthumbs.db
-Desktop.ini
-
-# macOS
-.DS_Store
-.AppleDouble
-.LSOverride
-
-# Linux
-*~
-
-# Editor backups
-*.bak
-*.orig
-*.rej
-
-# OVH Specific
-.ovh/
-ovh_config/
-
-# Composer
-composer.phar
-composer.lock
-
-# NPM
-package-lock.json
-yarn.lock
-
-# VS Code
-.vs/
-
-# PHPStorm
-.phpstorm.meta.php
-_ide_helper.php
-
-# Deployment specific
-deploy_log_*
-rollback_*
-pre_deploy_* 
