@@ -108,10 +108,10 @@ jobs:
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=127.0.0.1
+        DB_HOST=${{ secrets.SSH_HOST }}
         DB_PORT=3306
         DB_DATABASE=collection_manager_dev
-        DB_USERNAME=root
+        DB_USERNAME=${{ secrets.SSH_USER }}
         DB_PASSWORD=password
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
@@ -143,28 +143,31 @@ jobs:
     - name: Directory permissions
       run: chmod -R 777 storage bootstrap/cache
 
-    - name: Simulate Development Deployment
-      run: |
-        echo "🚀 Starting Development Deployment Simulation..."
-        echo "📦 Building application for development environment..."
-        echo "🔧 Optimizing for development..."
-        php artisan config:cache
-        php artisan route:cache
-        php artisan view:cache
-        php artisan optimize
-        echo "📁 Setting up directories..."
-        chmod -R 755 storage bootstrap/cache
-        chmod -R 775 storage/logs
-        chmod -R 775 storage/framework/cache
-        chmod -R 775 storage/framework/sessions
-        chmod -R 775 storage/framework/views
-        echo "🔗 Creating storage link..."
-        php artisan storage:link
-        echo "✅ Development deployment simulation completed successfully!"
-        echo "🌐 Application would be deployed to development server"
-        echo "📊 Environment: Development"
-        echo "🔍 Debug: Enabled"
-        echo "📧 Email: dev@example.com"
+    - name: Deploy to Development
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        script: |
+          echo "🚀 Starting Development Deployment..."
+          cd ${{ secrets.DEPLOY_PATH }}/development
+          git pull origin feature/extending_main_functionality
+          composer install --no-dev --optimize-autoloader
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan optimize
+          chmod -R 755 storage bootstrap/cache
+          chmod -R 775 storage/logs
+          chmod -R 775 storage/framework/cache
+          chmod -R 775 storage/framework/sessions
+          chmod -R 775 storage/framework/views
+          php artisan storage:link
+          echo "✅ Development deployment completed successfully!"
+          echo "🌐 Environment: Development"
+          echo "🔍 Debug: Enabled"
+          echo "📧 Email: dev@example.com"
 
   deploy-test:
     needs: test
@@ -194,11 +197,11 @@ jobs:
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=${{ secrets.TEST_DB_HOST }}
-        DB_PORT=${{ secrets.TEST_DB_PORT }}
-        DB_DATABASE=${{ secrets.TEST_DB_DATABASE }}
-        DB_USERNAME=${{ secrets.TEST_DB_USERNAME }}
-        DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
+        DB_HOST=${{ secrets.SSH_HOST }}
+        DB_PORT=3306
+        DB_DATABASE=collection_manager_test
+        DB_USERNAME=${{ secrets.SSH_USER }}
+        DB_PASSWORD=password
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
         FILESYSTEM_DISK=local
@@ -232,11 +235,12 @@ jobs:
     - name: Deploy to Test
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.TEST_SSH_HOST }}
-        username: ${{ secrets.TEST_SSH_USER }}
-        key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd ${{ secrets.TEST_DEPLOY_PATH }}
+          echo "🚀 Starting Test Deployment..."
+          cd ${{ secrets.DEPLOY_PATH }}/test
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -249,7 +253,10 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "Test deployment completed successfully!"
+          echo "✅ Test deployment completed successfully!"
+          echo "🌐 Environment: Test"
+          echo "🔍 Debug: Disabled"
+          echo "📧 Email: test@example.com"
 
   deploy-acceptance:
     needs: test
@@ -279,11 +286,11 @@ jobs:
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=${{ secrets.ACC_DB_HOST }}
-        DB_PORT=${{ secrets.ACC_DB_PORT }}
-        DB_DATABASE=${{ secrets.ACC_DB_DATABASE }}
-        DB_USERNAME=${{ secrets.ACC_DB_USERNAME }}
-        DB_PASSWORD=${{ secrets.ACC_DB_PASSWORD }}
+        DB_HOST=${{ secrets.SSH_HOST }}
+        DB_PORT=3306
+        DB_DATABASE=collection_manager_acceptance
+        DB_USERNAME=${{ secrets.SSH_USER }}
+        DB_PASSWORD=password
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
         FILESYSTEM_DISK=local
@@ -317,11 +324,12 @@ jobs:
     - name: Deploy to Acceptance
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.ACC_SSH_HOST }}
-        username: ${{ secrets.ACC_SSH_USER }}
-        key: ${{ secrets.ACC_SSH_PRIVATE_KEY }}
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd ${{ secrets.ACC_DEPLOY_PATH }}
+          echo "🚀 Starting Acceptance Deployment..."
+          cd ${{ secrets.DEPLOY_PATH }}/acceptance
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -334,7 +342,10 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "Acceptance deployment completed successfully!"
+          echo "✅ Acceptance deployment completed successfully!"
+          echo "🌐 Environment: Acceptance"
+          echo "🔍 Debug: Disabled"
+          echo "📧 Email: acc@example.com"
 
   deploy-production:
     needs: test
@@ -364,11 +375,11 @@ jobs:
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=${{ secrets.PROD_DB_HOST }}
-        DB_PORT=${{ secrets.PROD_DB_PORT }}
-        DB_DATABASE=${{ secrets.PROD_DB_DATABASE }}
-        DB_USERNAME=${{ secrets.PROD_DB_USERNAME }}
-        DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+        DB_HOST=${{ secrets.SSH_HOST }}
+        DB_PORT=3306
+        DB_DATABASE=collection_manager_production
+        DB_USERNAME=${{ secrets.SSH_USER }}
+        DB_PASSWORD=password
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
         FILESYSTEM_DISK=local
@@ -409,11 +420,12 @@ jobs:
     - name: Deploy to Production
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.PROD_SSH_HOST }}
-        username: ${{ secrets.PROD_SSH_USER }}
-        key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
+        host: ${{ secrets.SSH_HOST }}
+        username: ${{ secrets.SSH_USER }}
+        key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          cd ${{ secrets.PROD_DEPLOY_PATH }}
+          echo "🚀 Starting Production Deployment..."
+          cd ${{ secrets.DEPLOY_PATH }}/production
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -426,7 +438,10 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "Production deployment completed successfully!"
+          echo "✅ Production deployment completed successfully!"
+          echo "🌐 Environment: Production"
+          echo "🔍 Debug: Disabled"
+          echo "📧 Email: noreply@example.com"
 
     # FTP Deployment (for shared hosting) - Production only
     - name: Deploy to Production via FTP
