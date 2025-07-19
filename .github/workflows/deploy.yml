@@ -98,21 +98,39 @@ jobs:
             echo '✅ Application deployed successfully'
           "
 
-      - name: Run database migrations
+      - name: Run database migrations and seeding
         run: |
-          echo "🗄️  Running database migrations..."
+          echo "🗄️  Running Laravel database migrations and seeding..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Check if migration script exists and run it
-            if [ -f 'run_migrations.php' ]; then
-              php run_migrations.php 2>&1 || {
-                echo '❌ Database migration failed'
+            # Check if Laravel artisan exists and run migrations
+            if [ -f 'artisan' ]; then
+              echo '🔄 Running Laravel migrations...'
+              php artisan migrate --force 2>&1 || {
+                echo '❌ Laravel database migration failed'
                 exit 1
               }
-              echo '✅ Database migrations completed'
+              echo '✅ Laravel migrations completed'
+              
+              echo '🌱 Running database seeding...'
+              php artisan db:seed --force 2>&1 || {
+                echo '❌ Database seeding failed'
+                exit 1
+              }
+              echo '✅ Database seeding completed'
             else
-              echo '⚠️  No migration script found, skipping database updates'
+              # Fallback to old migration system
+              echo '⚠️  Laravel artisan not found, trying legacy migration system...'
+              if [ -f 'run_migrations.php' ]; then
+                php run_migrations.php 2>&1 || {
+                  echo '❌ Legacy database migration failed'
+                  exit 1
+                }
+                echo '✅ Legacy database migrations completed'
+              else
+                echo '⚠️  No migration system found, skipping database updates'
+              fi
             fi
           "
 
@@ -164,21 +182,39 @@ jobs:
             echo '✅ Application deployed successfully'
           "
 
-      - name: Run database migrations
+      - name: Run database migrations and seeding
         run: |
-          echo "🗄️  Running database migrations..."
+          echo "🗄️  Running Laravel database migrations and seeding..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Check if migration script exists and run it
-            if [ -f 'run_migrations.php' ]; then
-              php run_migrations.php 2>&1 || {
-                echo '❌ Database migration failed'
+            # Check if Laravel artisan exists and run migrations
+            if [ -f 'artisan' ]; then
+              echo '🔄 Running Laravel migrations...'
+              php artisan migrate --force 2>&1 || {
+                echo '❌ Laravel database migration failed'
                 exit 1
               }
-              echo '✅ Database migrations completed'
+              echo '✅ Laravel migrations completed'
+              
+              echo '🌱 Running database seeding...'
+              php artisan db:seed --force 2>&1 || {
+                echo '❌ Database seeding failed'
+                exit 1
+              }
+              echo '✅ Database seeding completed'
             else
-              echo '⚠️  No migration script found, skipping database updates'
+              # Fallback to old migration system
+              echo '⚠️  Laravel artisan not found, trying legacy migration system...'
+              if [ -f 'run_migrations.php' ]; then
+                php run_migrations.php 2>&1 || {
+                  echo '❌ Legacy database migration failed'
+                  exit 1
+                }
+                echo '✅ Legacy database migrations completed'
+              else
+                echo '⚠️  No migration system found, skipping database updates'
+              fi
             fi
           "
 
@@ -230,21 +266,39 @@ jobs:
             echo '✅ Application deployed successfully'
           "
 
-      - name: Run database migrations
+      - name: Run database migrations and seeding
         run: |
-          echo "🗄️  Running database migrations..."
+          echo "🗄️  Running Laravel database migrations and seeding..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Check if migration script exists and run it
-            if [ -f 'run_migrations.php' ]; then
-              php run_migrations.php 2>&1 || {
-                echo '❌ Database migration failed'
+            # Check if Laravel artisan exists and run migrations
+            if [ -f 'artisan' ]; then
+              echo '🔄 Running Laravel migrations...'
+              php artisan migrate --force 2>&1 || {
+                echo '❌ Laravel database migration failed'
                 exit 1
               }
-              echo '✅ Database migrations completed'
+              echo '✅ Laravel migrations completed'
+              
+              echo '🌱 Running database seeding...'
+              php artisan db:seed --force 2>&1 || {
+                echo '❌ Database seeding failed'
+                exit 1
+              }
+              echo '✅ Database seeding completed'
             else
-              echo '⚠️  No migration script found, skipping database updates'
+              # Fallback to old migration system
+              echo '⚠️  Laravel artisan not found, trying legacy migration system...'
+              if [ -f 'run_migrations.php' ]; then
+                php run_migrations.php 2>&1 || {
+                  echo '❌ Legacy database migration failed'
+                  exit 1
+                }
+                echo '✅ Legacy database migrations completed'
+              else
+                echo '⚠️  No migration system found, skipping database updates'
+              fi
             fi
           "
 
@@ -309,21 +363,39 @@ jobs:
             echo '✅ Application deployed successfully'
           "
 
-      - name: Run database migrations
+      - name: Run database migrations and seeding
         run: |
-          echo "🗄️  Running database migrations..."
+          echo "🗄️  Running Laravel database migrations and seeding..."
           ssh -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }} "
             cd ${{ secrets.DEPLOY_PATH }}
             
-            # Check if migration script exists and run it
-            if [ -f 'run_migrations.php' ]; then
-              php run_migrations.php 2>&1 || {
-                echo '❌ Database migration failed'
+            # Check if Laravel artisan exists and run migrations
+            if [ -f 'artisan' ]; then
+              echo '🔄 Running Laravel migrations...'
+              php artisan migrate --force 2>&1 || {
+                echo '❌ Laravel database migration failed'
                 exit 1
               }
-              echo '✅ Database migrations completed'
+              echo '✅ Laravel migrations completed'
+              
+              echo '🌱 Running database seeding...'
+              php artisan db:seed --force 2>&1 || {
+                echo '❌ Database seeding failed'
+                exit 1
+              }
+              echo '✅ Database seeding completed'
             else
-              echo '⚠️  No migration script found, skipping database updates'
+              # Fallback to old migration system
+              echo '⚠️  Laravel artisan not found, trying legacy migration system...'
+              if [ -f 'run_migrations.php' ]; then
+                php run_migrations.php 2>&1 || {
+                  echo '❌ Legacy database migration failed'
+                  exit 1
+                }
+                echo '✅ Legacy database migrations completed'
+              else
+                echo '⚠️  No migration system found, skipping database updates'
+              fi
             fi
           "
 

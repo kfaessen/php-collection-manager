@@ -1,6 +1,6 @@
-# 🚀 PHP Collectiebeheer
+# 🚀 Collection Manager - Laravel Versie
 
-Een moderne web applicatie voor het beheren van persoonlijke collecties (games, films, boeken, muziek) met automatische metadata enrichment, barcode scanning en multi-user ondersteuning.
+Een moderne Laravel applicatie voor het beheren van persoonlijke collecties (games, films, boeken, muziek) met automatische metadata enrichment, barcode scanning en multi-user ondersteuning.
 
 ## ✨ Hoofdfuncties
 
@@ -10,95 +10,235 @@ Een moderne web applicatie voor het beheren van persoonlijke collecties (games, 
 - 🌐 **Meertalig** - Nederlands, Engels, Duits, Frans, Spaans
 - 🔐 **Veilige Authenticatie** - TOTP 2FA, OAuth (Google/Facebook)
 - 📱 **Progressive Web App** - Offline functionaliteit, push notifications
-- 🚀 **Auto-deployment** - GitHub Actions CI/CD pipeline
+- 🚀 **Laravel Framework** - Moderne PHP framework met uitstekende features
+
+## 🛠️ Technische Stack
+
+- **Backend**: Laravel 11, PHP 8.1+
+- **Database**: MySQL 8.0+
+- **Frontend**: Bootstrap 5, Blade Templates
+- **APIs**: IGDB, OMDb, OpenLibrary, TMDb, Spotify
+- **Features**: PWA, Push Notifications, OAuth, i18n, TOTP
+- **Packages**: Laravel Sanctum, Laravel Cashier, Spatie Permissions
 
 ## 🚀 Quick Start
 
 ### Vereisten
-- PHP 8.4+
+- PHP 8.1+
 - MySQL 8.0+
-- Composer (optioneel)
+- Composer
+- Node.js & NPM (voor assets)
 
 ### Installatie
+
+1. **Clone repository**
 ```bash
-# 1. Clone repository
-git clone https://github.com/kfaessen/php-collection-manager.git
-cd php-collection-manager
+git clone <repository-url>
+cd collection-manager-laravel
+```
 
-# 2. Configureer environment
-cp env.template .env
+2. **Installeer dependencies**
+```bash
+composer install
+npm install
+```
+
+3. **Configureer environment**
+```bash
+cp env.example .env
 # Bewerk .env met je database gegevens
+```
 
-# 3. Setup database
-php setup_database.php
+4. **Genereer application key**
+```bash
+php artisan key:generate
+```
 
-# 4. Run migraties
-php run_migrations.php
+5. **Run database migrations**
+```bash
+php artisan migrate
+```
 
-# 5. Start webserver
-php -S localhost:8000 -t public/
+6. **Seed database met test data**
+```bash
+php artisan db:seed
+```
+
+7. **Build assets**
+```bash
+npm run build
+```
+
+8. **Start development server**
+```bash
+php artisan serve
 ```
 
 Ga naar `http://localhost:8000` en log in met:
 - **Username**: `admin`
 - **Password**: `admin123`
 
-## 📚 Documentatie
+## 📚 Database Migrations
 
-Voor gedetailleerde informatie zie de documentatie in `/docs/`:
+Het project gebruikt Laravel's migration systeem voor database schema management:
 
-- **[Features](docs/FEATURES.md)** - Uitgebreide functionaliteit overzicht
-- **[Deployment](docs/DEPLOYMENT.md)** - Installatie, configuratie en deployment
-- **[API Reference](docs/API.md)** - API endpoints en integratie (TODO)
-- **[Development](docs/DEVELOPMENT.md)** - Development setup en bijdragen (TODO)
+```bash
+# Run alle migrations
+php artisan migrate
 
-## 🛠️ Technische Stack
+# Rollback laatste migration
+php artisan migrate:rollback
 
-- **Backend**: PHP 8.4, MySQL 8.0
-- **Frontend**: Bootstrap 5, Vanilla JavaScript
-- **APIs**: IGDB, OMDb, OpenLibrary, TMDb, Spotify
-- **Features**: PWA, Push Notifications, OAuth, i18n, TOTP
-- **Deployment**: GitHub Actions, SSH, Multi-environment
+# Reset alle migrations en opnieuw runnen
+php artisan migrate:fresh
+
+# Status van migrations bekijken
+php artisan migrate:status
+```
+
+### Beschikbare Migrations
+
+1. `2014_10_12_000000_create_users_table.php` - Gebruikers tabel
+2. `2014_10_12_100000_create_groups_table.php` - Groepen tabel
+3. `2014_10_12_200000_create_permissions_table.php` - Permissions tabel
+4. `2014_10_12_300000_create_user_groups_table.php` - User-Group pivot
+5. `2014_10_12_400000_create_group_permissions_table.php` - Group-Permission pivot
+6. `2014_10_12_500000_create_collection_items_table.php` - Collectie items
 
 ## 🔧 Configuratie
+
+### Environment Variables
 
 Basis configuratie via `.env`:
 
 ```env
 # Database
-DB_HOST=localhost
-DB_NAME=collection_manager
-DB_USER=root
-DB_PASS=
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=collection_manager_laravel
+DB_USERNAME=root
+DB_PASSWORD=
 
 # Application
-APP_ENV=development
+APP_NAME="Collection Manager"
+APP_ENV=local
 APP_DEBUG=true
 APP_URL=http://localhost:8000
 
 # API Keys (optioneel)
-OMDB_API_KEY=your_key_here
-IGDB_CLIENT_ID=your_client_id
-IGDB_SECRET=your_secret
+IGDB_CLIENT_ID=your_igdb_client_id
+IGDB_CLIENT_SECRET=your_igdb_secret
+OMDB_API_KEY=your_omdb_key
+TMDB_API_KEY=your_tmdb_key
 ```
 
-Zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) voor volledige configuratie opties.
+## 🏗️ Project Structuur
+
+```
+collection-manager-laravel/
+├── app/
+│   ├── Http/Controllers/     # Controllers
+│   ├── Models/              # Eloquent Models
+│   └── Providers/           # Service Providers
+├── database/
+│   ├── migrations/          # Database migrations
+│   ├── seeders/            # Database seeders
+│   └── factories/          # Model factories
+├── resources/
+│   ├── views/              # Blade templates
+│   ├── js/                 # JavaScript files
+│   └── css/                # CSS files
+├── routes/
+│   ├── web.php             # Web routes
+│   └── api.php             # API routes
+└── storage/                # File storage
+```
+
+## 🔐 Authenticatie & Permissions
+
+Het project gebruikt Laravel's ingebouwde authenticatie systeem met Spatie Permissions:
+
+### Gebruikersrollen
+- **Admin** - Volledige toegang
+- **Moderator** - Beperkte admin toegang
+- **User** - Basis toegang
+- **Guest** - Alleen lezen
+
+### Permissions
+- `manage_users` - Gebruikers beheren
+- `manage_collections` - Collecties beheren
+- `view_collections` - Collecties bekijken
+- `edit_collections` - Collecties bewerken
+
+## 📱 API Endpoints
+
+### Collection Management
+- `GET /collection` - Overzicht collectie
+- `POST /collection` - Nieuw item toevoegen
+- `GET /collection/{item}` - Item details
+- `PUT /collection/{item}` - Item bewerken
+- `DELETE /collection/{item}` - Item verwijderen
+
+### API Routes
+- `POST /api/collection/scan` - Barcode scannen
+- `POST /api/collection/search` - Zoeken in collectie
+- `POST /api/collection/share` - Deel link maken
 
 ## 🚀 Deployment
 
-### Development
+### Production Setup
+
+1. **Configureer environment**
 ```bash
-git push origin main  # Auto-deploy naar development
+APP_ENV=production
+APP_DEBUG=false
 ```
 
-### Production
-Volledig geautomatiseerde deployment via GitHub Actions:
-- Multi-environment support (dev/test/acc/prod)
-- Automatische database migraties
-- Zero-downtime deployment
-- Rollback functionaliteit
+2. **Optimize voor productie**
+```bash
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
+```
 
-Zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) voor setup instructies.
+3. **Setup webserver**
+- Apache/Nginx configuratie
+- SSL certificaat
+- File permissions
+
+### Docker Deployment
+
+```bash
+# Build Docker image
+docker build -t collection-manager .
+
+# Run container
+docker run -p 8000:8000 collection-manager
+```
+
+## 🧪 Testing
+
+```bash
+# Run alle tests
+php artisan test
+
+# Run specifieke test
+php artisan test --filter=CollectionTest
+
+# Code coverage
+php artisan test --coverage
+```
+
+## 📊 Monitoring
+
+### Health Checks
+- `GET /up` - Application health check
+- `GET /health` - Database connectivity check
+
+### Logging
+- Application logs: `storage/logs/laravel.log`
+- Error tracking via Laravel Telescope (development)
 
 ## 🤝 Bijdragen
 
@@ -110,12 +250,12 @@ Zie [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) voor setup instructies.
 
 ## 📄 Licentie
 
-Dit project is gelicenseerd onder de MIT License - zie het [LICENSE](LICENSE) bestand voor details.
+Dit project is gelicenseerd onder de MIT License.
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/kfaessen/php-collection-manager/issues)
-- **Documentatie**: [docs/](docs/)
+- **Issues**: [GitHub Issues](https://github.com/username/collection-manager-laravel/issues)
+- **Documentatie**: [Laravel Docs](https://laravel.com/docs)
 - **Email**: [support@collectiebeheer.nl](mailto:support@collectiebeheer.nl)
 
 ## 🎯 Roadmap
@@ -126,7 +266,8 @@ Dit project is gelicenseerd onder de MIT License - zie het [LICENSE](LICENSE) be
 - [ ] Social sharing features
 - [ ] AI-powered recommendations
 - [ ] Marketplace integratie
+- [ ] Subscription system met Laravel Cashier
 
 ---
 
-**Gemaakt met ❤️ voor verzamelaars**
+**Gemaakt met ❤️ en Laravel voor verzamelaars**
