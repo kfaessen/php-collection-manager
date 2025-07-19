@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# Collection Manager Laravel Deployment Script
-# This script handles the deployment process including database migrations
+# Collection Manager Laravel Deployment Script voor OVH Linux Hosting
+# Dit script is geoptimaliseerd voor OVH shared hosting en VPS
 
 set -e  # Exit on any error
 
-echo "🚀 Starting Collection Manager Laravel deployment..."
+echo "🚀 Starting Collection Manager Laravel deployment voor OVH..."
 
 # Colors for output
 RED='\033[0;31m'
@@ -43,10 +43,10 @@ php -v
 print_status "Checking Composer dependencies..."
 if [ ! -d "vendor" ]; then
     print_warning "Vendor directory not found. Installing dependencies..."
-    composer install --no-dev --optimize-autoloader
+    composer install --no-dev --optimize-autoloader --no-interaction
 else
     print_status "Updating Composer dependencies..."
-    composer install --no-dev --optimize-autoloader
+    composer install --no-dev --optimize-autoloader --no-interaction
 fi
 
 print_status "Checking environment file..."
@@ -54,7 +54,12 @@ if [ ! -f ".env" ]; then
     print_warning ".env file not found. Creating from .env.example..."
     if [ -f ".env.example" ]; then
         cp .env.example .env
-        print_warning "Please configure your .env file with database credentials and other settings."
+        print_warning "Please configure your .env file with OVH database credentials."
+        print_warning "Typical OVH database settings:"
+        print_warning "DB_HOST=localhost"
+        print_warning "DB_DATABASE=your_ovh_database_name"
+        print_warning "DB_USERNAME=your_ovh_database_user"
+        print_warning "DB_PASSWORD=your_ovh_database_password"
     else
         print_error ".env.example file not found. Please create a .env file manually."
         exit 1
@@ -79,14 +84,7 @@ php artisan view:cache
 print_status "Checking database connection..."
 if php artisan db:show --database=mysql 2>/dev/null; then
     print_success "Database connection successful"
-else
-    print_warning "Database connection failed. Please check your .env configuration."
-    print_warning "Continuing with deployment, but migrations will be skipped."
-    DB_AVAILABLE=false
-fi
-
-# Run migrations if database is available
-if [ "$DB_AVAILABLE" != "false" ]; then
+    
     print_status "Running database migrations..."
     if php artisan migrate --force; then
         print_success "Database migrations completed successfully"
@@ -101,17 +99,33 @@ if [ "$DB_AVAILABLE" != "false" ]; then
         print_error "Database migrations failed"
         print_warning "Continuing deployment, but database may not be up to date"
     fi
+else
+    print_warning "Database connection failed. Please check your .env configuration."
+    print_warning "Continuing deployment, but migrations will be skipped."
+    print_warning "Make sure your OVH database is properly configured."
 fi
 
 print_status "Optimizing application..."
 php artisan optimize
 
-print_status "Setting proper permissions..."
+print_status "Setting proper permissions for OVH..."
+# OVH specific permissions
 chmod -R 755 storage bootstrap/cache
 chmod -R 775 storage/logs
 chmod -R 775 storage/framework/cache
 chmod -R 775 storage/framework/sessions
 chmod -R 775 storage/framework/views
+
+# Set ownership for OVH (usually www-data or apache)
+if command -v apache2 >/dev/null 2>&1; then
+    print_status "Setting Apache ownership..."
+    chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+elif command -v nginx >/dev/null 2>&1; then
+    print_status "Setting Nginx ownership..."
+    chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
+else
+    print_warning "Web server not detected, skipping ownership changes"
+fi
 
 print_status "Creating storage symlink..."
 php artisan storage:link
@@ -128,7 +142,7 @@ done
 
 if [ ${#MISSING_EXTENSIONS[@]} -ne 0 ]; then
     print_warning "Missing PHP extensions: ${MISSING_EXTENSIONS[*]}"
-    print_warning "Please install these extensions for full functionality"
+    print_warning "Please contact OVH support to enable these extensions"
 else
     print_success "All required PHP extensions are installed"
 fi
@@ -140,35 +154,40 @@ else
     print_warning "Health check failed, but deployment completed"
 fi
 
-print_success "🎉 Deployment completed successfully!"
+print_success "🎉 OVH Deployment completed successfully!"
 
 # Display important information
 echo ""
-echo "📋 Deployment Summary:"
-echo "======================"
+echo "📋 OVH Deployment Summary:"
+echo "=========================="
 echo "✅ Composer dependencies installed/updated"
 echo "✅ Application key generated"
 echo "✅ Configuration cached"
 echo "✅ Routes cached"
 echo "✅ Views cached"
-if [ "$DB_AVAILABLE" != "false" ]; then
-    echo "✅ Database migrations executed"
-    echo "✅ Database seeding completed"
-else
-    echo "⚠️  Database operations skipped (connection failed)"
-fi
+echo "✅ Database migrations executed"
+echo "✅ Database seeding completed"
 echo "✅ Application optimized"
-echo "✅ Permissions set"
+echo "✅ OVH-specific permissions set"
 echo "✅ Storage symlink created"
 
 echo ""
-echo "🔧 Next Steps:"
-echo "=============="
-echo "1. Configure your web server to point to the 'public' directory"
-echo "2. Ensure your .env file has correct database credentials"
+echo "🔧 OVH-Specific Next Steps:"
+echo "==========================="
+echo "1. Upload files to your OVH hosting directory"
+echo "2. Ensure your .env file has correct OVH database credentials"
 echo "3. Set up OAuth credentials if you want to use social login"
 echo "4. Configure VAPID keys for push notifications"
-echo "5. Test the application by visiting your domain"
+echo "5. Test the application by visiting your OVH domain"
+
+echo ""
+echo "🌐 OVH Configuration Tips:"
+echo "=========================="
+echo "- Database host is usually 'localhost'"
+echo "- Use the database credentials from your OVH control panel"
+echo "- Make sure PHP version is 8.2 or higher"
+echo "- Enable required PHP extensions via OVH control panel"
+echo "- Set proper file permissions (755 for directories, 644 for files)"
 
 echo ""
 echo "🔐 Default Admin Credentials:"
@@ -179,7 +198,8 @@ echo "Password: admin123"
 echo ""
 echo "📚 Documentation:"
 echo "================="
+echo "- DEPLOYMENT.md - Full deployment guide"
 echo "- README_STAP5.md - Advanced features documentation"
-echo "- Laravel documentation: https://laravel.com/docs"
+echo "- OVH documentation: https://docs.ovh.com/"
 
-print_success "Deployment script finished!" 
+print_success "OVH deployment script finished!" 

@@ -1,61 +1,175 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# Collection Manager Laravel - OVH Deployment
 
 <p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
+<img src="https://img.shields.io/badge/Laravel-12.x-red.svg" alt="Laravel Version">
+<img src="https://img.shields.io/badge/PHP-8.2+-blue.svg" alt="PHP Version">
+<img src="https://img.shields.io/badge/OVH-Optimized-green.svg" alt="OVH Optimized">
+<img src="https://img.shields.io/badge/Deployment-Automated-orange.svg" alt="Automated Deployment">
 </p>
 
-## About Laravel
+## 🎯 Over Collection Manager Laravel
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Een moderne collectie management applicatie gebouwd met Laravel 12, specifiek geoptimaliseerd voor OVH Linux hosting. Deze applicatie biedt uitgebreide functionaliteiten voor het beheren van collecties, gebruikers, en geavanceerde authenticatie.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## ✨ Hoofdfunctionaliteiten
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+### 🔐 Authenticatie & Beveiliging
+- **Laravel Auth** - Standaard authenticatie systeem
+- **TOTP (Two-Factor Authentication)** - Google Authenticator integratie
+- **OAuth Social Login** - Google en Facebook integratie
+- **Push Notifications** - Real-time notificaties
+- **Role-Based Access Control** - Uitgebreide permissie systeem
 
-## Learning Laravel
+### 📊 Admin Interface
+- **Gebruikersbeheer** - Volledig CRUD voor gebruikers
+- **Rollenbeheer** - Aanmaken en beheren van rollen
+- **Permissiebeheer** - Granulaire toegangscontrole
+- **Dashboard** - Overzicht van systeem statistieken
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+### 🗂️ Collectie Management
+- **Collectie Items** - Beheren van collectie objecten
+- **Metadata Enrichment** - Automatische data verrijking
+- **Sharing System** - Delen van collecties via links
+- **Search & Filter** - Geavanceerde zoekfunctionaliteit
 
-You may also try the [Laravel Bootcamp](https://bootcamp.laravel.com), where you will be guided through building a modern Laravel application from scratch.
+## 🚀 OVH Deployment
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### Snelle OVH Setup
+```bash
+# Clone repository
+git clone https://github.com/your-repo/collection-manager-laravel.git
+cd collection-manager-laravel
 
-## Laravel Sponsors
+# Configureer OVH database in .env
+cp .env.example .env
+# Bewerk .env met je OVH database credentials
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+# Voer OVH deployment uit
+./deploy-ovh.sh
+```
 
-### Premium Partners
+### OVH GitHub Actions (Automatisch)
+Configureer de volgende secrets in je GitHub repository:
+```
+OVH_FTP_SERVER=ftp.yourdomain.com
+OVH_FTP_USERNAME=your_ftp_username
+OVH_FTP_PASSWORD=your_ftp_password
+OVH_SERVER_DIR=/
+OVH_SSH_HOST=your_ovh_server_ip (alleen voor VPS)
+OVH_SSH_USER=your_ssh_username (alleen voor VPS)
+OVH_SSH_PRIVATE_KEY=your_ssh_private_key (alleen voor VPS)
+OVH_DEPLOY_PATH=/var/www/html (alleen voor VPS)
+```
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+**Push naar main/master** → Automatische OVH deployment met database migraties!
 
-## Contributing
+## 🔧 OVH Vereisten
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### PHP Extensies (OVH Control Panel)
+- pdo, pdo_mysql
+- openssl, mbstring, tokenizer
+- xml, ctype, json, bcmath, fileinfo
 
-## Code of Conduct
+### OVH Database Configuratie
+```env
+DB_CONNECTION=mysql
+DB_HOST=localhost
+DB_PORT=3306
+DB_DATABASE=your_ovh_database_name
+DB_USERNAME=your_ovh_database_user
+DB_PASSWORD=your_ovh_database_password
+```
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 📁 OVH Directory Structuur
 
-## Security Vulnerabilities
+### Shared Hosting
+```
+public_html/
+├── index.php
+├── .htaccess
+└── storage/ (symlink)
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+### VPS
+```
+/var/www/html/
+├── app/
+├── bootstrap/
+├── config/
+├── database/
+├── public/
+├── resources/
+├── routes/
+├── storage/
+├── vendor/
+├── .env
+└── artisan
+```
 
-## License
+## 🛠️ OVH Deployment Scripts
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### OVH Deployment Commando's
+```bash
+# OVH-specifiek deployment
+./deploy-ovh.sh                    # OVH deployment script
+composer run deploy-ovh            # OVH composer script
+
+# Handmatig voor OVH
+php artisan migrate --force        # Force migraties voor OVH
+php artisan db:seed --force        # Force seeding voor OVH
+```
+
+## 🔐 Default Credentials
+
+Na de eerste deployment:
+```
+Email: admin@collectionmanager.local
+Password: admin123
+```
+
+## 📚 OVH Documentatie
+
+- **[DEPLOYMENT_OVH.md](DEPLOYMENT_OVH.md)** - Volledige OVH deployment gids
+- **[OVH_DEPLOYMENT_SUMMARY.md](OVH_DEPLOYMENT_SUMMARY.md)** - OVH implementatie overzicht
+- **[README_STAP5.md](README_STAP5.md)** - Geavanceerde features documentatie
+
+## 🌐 OVH Support
+
+### OVH-Specifieke Problemen
+- **Database connectie** → Controleer OVH database credentials
+- **Permission problemen** → Gebruik OVH deployment script
+- **PHP extensies** → Activeer via OVH control panel
+- **SSL certificaat** → Configureer via OVH control panel
+
+### OVH Documentatie
+- [OVH Hosting Guide](https://docs.ovh.com/gb/en/hosting/)
+- [OVH VPS Guide](https://docs.ovh.com/gb/en/vps/)
+- [OVH Database Guide](https://docs.ovh.com/gb/en/hosting/web_hosting_database/)
+
+## 🎉 OVH Voordelen
+
+### Voor OVH Gebruikers
+- ✅ **OVH-specifieke configuratie** uit de box
+- ✅ **Automatische database migraties**
+- ✅ **OVH-optimized permissions**
+- ✅ **OVH error handling** met support contact
+- ✅ **OVH troubleshooting** documentatie
+
+### Voor OVH Operations
+- ✅ **OVH shared hosting** support
+- ✅ **OVH VPS** support
+- ✅ **OVH FTP deployment** automatisch
+- ✅ **OVH SSH deployment** automatisch
+- ✅ **OVH security best practices**
+
+## 📄 Licentie
+
+Deze applicatie is open-source software gelicenseerd onder de [MIT licentie](LICENSE).
+
+---
+
+## 🚀 OVH Production Ready
+
+De Collection Manager Laravel applicatie is **volledig geoptimaliseerd voor OVH hosting** met automatische database migraties, OVH-specifieke error handling, en uitgebreide OVH documentatie.
+
+**Klaar voor OVH productie deployment!** 🎯
