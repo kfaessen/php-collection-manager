@@ -108,6 +108,20 @@ class CollectionItem extends Model
     }
 
     /**
+     * Scope a query to search items by title, description, or notes.
+     */
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function($q) use ($search) {
+            $q->where('title', 'like', "%{$search}%")
+              ->orWhere('description', 'like', "%{$search}%")
+              ->orWhere('notes', 'like', "%{$search}%")
+              ->orWhere('platform', 'like', "%{$search}%")
+              ->orWhere('category', 'like', "%{$search}%");
+        });
+    }
+
+    /**
      * Get the shared links for this collection item.
      */
     public function sharedLinks()

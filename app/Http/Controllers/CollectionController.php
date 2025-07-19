@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use App\Models\CollectionItem;
+use App\Models\SharedLink;
 use Illuminate\Support\Facades\Validator;
 
 class CollectionController extends Controller
@@ -423,7 +424,7 @@ class CollectionController extends Controller
         $expiresAt = $request->expires_at ? now()->parse($request->expires_at) : now()->addDays(7);
 
         // Create share link
-        $shareLink = \App\Models\SharedLink::create([
+        $shareLink = SharedLink::create([
             'user_id' => auth()->id(),
             'item_id' => $item->id,
             'token' => $token,
@@ -643,10 +644,10 @@ class CollectionController extends Controller
      */
     public function showShared($token)
     {
-        $sharedLink = \App\Models\SharedLink::where('token', $token)
-                                            ->active()
-                                            ->with('item')
-                                            ->first();
+        $sharedLink = SharedLink::where('token', $token)
+                                ->active()
+                                ->with('item')
+                                ->first();
 
         if (!$sharedLink) {
             abort(404, 'Deel link is niet geldig of verlopen.');
