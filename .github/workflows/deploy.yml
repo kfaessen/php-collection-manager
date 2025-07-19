@@ -2,9 +2,9 @@ name: Deploy Collection Manager
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ main, master, develop, feature/* ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ main, master, develop ]
 
 jobs:
   test:
@@ -34,7 +34,7 @@ jobs:
       run: |
         cat > .env << 'EOF'
         APP_NAME="Collection Manager"
-        APP_ENV=local
+        APP_ENV=testing
         APP_KEY=
         APP_DEBUG=true
         APP_URL=http://localhost
@@ -80,10 +80,11 @@ jobs:
     - name: Run tests
       run: php artisan test
 
-  deploy:
+  deploy-development:
     needs: test
     runs-on: ubuntu-latest
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master') && github.event_name == 'push'
+    environment: development
+    if: github.ref == 'refs/heads/develop' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -95,23 +96,23 @@ jobs:
         extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
         coverage: none
 
-    - name: Create .env file
+    - name: Create .env file for development
       run: |
         cat > .env << 'EOF'
-        APP_NAME="Collection Manager"
-        APP_ENV=production
+        APP_NAME="Collection Manager - Development"
+        APP_ENV=development
         APP_KEY=
-        APP_DEBUG=false
+        APP_DEBUG=true
         APP_URL=http://localhost
         LOG_CHANNEL=stack
         LOG_DEPRECATIONS_CHANNEL=null
         LOG_LEVEL=debug
         DB_CONNECTION=mysql
-        DB_HOST=127.0.0.1
-        DB_PORT=3306
-        DB_DATABASE=collection_manager
-        DB_USERNAME=root
-        DB_PASSWORD=
+        DB_HOST=${{ secrets.DEV_DB_HOST }}
+        DB_PORT=${{ secrets.DEV_DB_PORT }}
+        DB_DATABASE=${{ secrets.DEV_DB_DATABASE }}
+        DB_USERNAME=${{ secrets.DEV_DB_USERNAME }}
+        DB_PASSWORD=${{ secrets.DEV_DB_PASSWORD }}
         BROADCAST_DRIVER=log
         CACHE_DRIVER=file
         FILESYSTEM_DISK=local
@@ -128,7 +129,262 @@ jobs:
         MAIL_USERNAME=null
         MAIL_PASSWORD=null
         MAIL_ENCRYPTION=null
-        MAIL_FROM_ADDRESS="hello@example.com"
+        MAIL_FROM_ADDRESS="dev@example.com"
+        MAIL_FROM_NAME="${APP_NAME}"
+        VITE_APP_NAME="${APP_NAME}"
+        EOF
+
+    - name: Install dependencies
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate key
+      run: php artisan key:generate
+
+    - name: Directory permissions
+      run: chmod -R 777 storage bootstrap/cache
+
+    - name: Deploy to Development
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.DEV_SSH_HOST }}
+        username: ${{ secrets.DEV_SSH_USER }}
+        key: ${{ secrets.DEV_SSH_PRIVATE_KEY }}
+        script: |
+          cd ${{ secrets.DEV_DEPLOY_PATH }}
+          git pull origin develop
+          composer install --no-dev --optimize-autoloader
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan optimize
+          chmod -R 755 storage bootstrap/cache
+          chmod -R 775 storage/logs
+          chmod -R 775 storage/framework/cache
+          chmod -R 775 storage/framework/sessions
+          chmod -R 775 storage/framework/views
+          php artisan storage:link
+          echo "Development deployment completed successfully!"
+
+  deploy-test:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
+        coverage: none
+
+    - name: Create .env file for test
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME="Collection Manager - Test"
+        APP_ENV=testing
+        APP_KEY=
+        APP_DEBUG=false
+        APP_URL=http://localhost
+        LOG_CHANNEL=stack
+        LOG_DEPRECATIONS_CHANNEL=null
+        LOG_LEVEL=debug
+        DB_CONNECTION=mysql
+        DB_HOST=${{ secrets.TEST_DB_HOST }}
+        DB_PORT=${{ secrets.TEST_DB_PORT }}
+        DB_DATABASE=${{ secrets.TEST_DB_DATABASE }}
+        DB_USERNAME=${{ secrets.TEST_DB_USERNAME }}
+        DB_PASSWORD=${{ secrets.TEST_DB_PASSWORD }}
+        BROADCAST_DRIVER=log
+        CACHE_DRIVER=file
+        FILESYSTEM_DISK=local
+        QUEUE_CONNECTION=sync
+        SESSION_DRIVER=file
+        SESSION_LIFETIME=120
+        MEMCACHED_HOST=127.0.0.1
+        REDIS_HOST=127.0.0.1
+        REDIS_PASSWORD=null
+        REDIS_PORT=6379
+        MAIL_MAILER=smtp
+        MAIL_HOST=mailpit
+        MAIL_PORT=1025
+        MAIL_USERNAME=null
+        MAIL_PASSWORD=null
+        MAIL_ENCRYPTION=null
+        MAIL_FROM_ADDRESS="test@example.com"
+        MAIL_FROM_NAME="${APP_NAME}"
+        VITE_APP_NAME="${APP_NAME}"
+        EOF
+
+    - name: Install dependencies
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate key
+      run: php artisan key:generate
+
+    - name: Directory permissions
+      run: chmod -R 777 storage bootstrap/cache
+
+    - name: Deploy to Test
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.TEST_SSH_HOST }}
+        username: ${{ secrets.TEST_SSH_USER }}
+        key: ${{ secrets.TEST_SSH_PRIVATE_KEY }}
+        script: |
+          cd ${{ secrets.TEST_DEPLOY_PATH }}
+          git pull origin main
+          composer install --no-dev --optimize-autoloader
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan optimize
+          chmod -R 755 storage bootstrap/cache
+          chmod -R 775 storage/logs
+          chmod -R 775 storage/framework/cache
+          chmod -R 775 storage/framework/sessions
+          chmod -R 775 storage/framework/views
+          php artisan storage:link
+          echo "Test deployment completed successfully!"
+
+  deploy-acceptance:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: acceptance
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
+        coverage: none
+
+    - name: Create .env file for acceptance
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME="Collection Manager - Acceptance"
+        APP_ENV=acceptance
+        APP_KEY=
+        APP_DEBUG=false
+        APP_URL=http://localhost
+        LOG_CHANNEL=stack
+        LOG_DEPRECATIONS_CHANNEL=null
+        LOG_LEVEL=debug
+        DB_CONNECTION=mysql
+        DB_HOST=${{ secrets.ACC_DB_HOST }}
+        DB_PORT=${{ secrets.ACC_DB_PORT }}
+        DB_DATABASE=${{ secrets.ACC_DB_DATABASE }}
+        DB_USERNAME=${{ secrets.ACC_DB_USERNAME }}
+        DB_PASSWORD=${{ secrets.ACC_DB_PASSWORD }}
+        BROADCAST_DRIVER=log
+        CACHE_DRIVER=file
+        FILESYSTEM_DISK=local
+        QUEUE_CONNECTION=sync
+        SESSION_DRIVER=file
+        SESSION_LIFETIME=120
+        MEMCACHED_HOST=127.0.0.1
+        REDIS_HOST=127.0.0.1
+        REDIS_PASSWORD=null
+        REDIS_PORT=6379
+        MAIL_MAILER=smtp
+        MAIL_HOST=mailpit
+        MAIL_PORT=1025
+        MAIL_USERNAME=null
+        MAIL_PASSWORD=null
+        MAIL_ENCRYPTION=null
+        MAIL_FROM_ADDRESS="acc@example.com"
+        MAIL_FROM_NAME="${APP_NAME}"
+        VITE_APP_NAME="${APP_NAME}"
+        EOF
+
+    - name: Install dependencies
+      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+
+    - name: Generate key
+      run: php artisan key:generate
+
+    - name: Directory permissions
+      run: chmod -R 777 storage bootstrap/cache
+
+    - name: Deploy to Acceptance
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.ACC_SSH_HOST }}
+        username: ${{ secrets.ACC_SSH_USER }}
+        key: ${{ secrets.ACC_SSH_PRIVATE_KEY }}
+        script: |
+          cd ${{ secrets.ACC_DEPLOY_PATH }}
+          git pull origin main
+          composer install --no-dev --optimize-autoloader
+          php artisan config:cache
+          php artisan route:cache
+          php artisan view:cache
+          php artisan optimize
+          chmod -R 755 storage bootstrap/cache
+          chmod -R 775 storage/logs
+          chmod -R 775 storage/framework/cache
+          chmod -R 775 storage/framework/sessions
+          chmod -R 775 storage/framework/views
+          php artisan storage:link
+          echo "Acceptance deployment completed successfully!"
+
+  deploy-production:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup PHP
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: '8.2'
+        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
+        coverage: none
+
+    - name: Create .env file for production
+      run: |
+        cat > .env << 'EOF'
+        APP_NAME="Collection Manager"
+        APP_ENV=production
+        APP_KEY=
+        APP_DEBUG=false
+        APP_URL=http://localhost
+        LOG_CHANNEL=stack
+        LOG_DEPRECATIONS_CHANNEL=null
+        LOG_LEVEL=debug
+        DB_CONNECTION=mysql
+        DB_HOST=${{ secrets.PROD_DB_HOST }}
+        DB_PORT=${{ secrets.PROD_DB_PORT }}
+        DB_DATABASE=${{ secrets.PROD_DB_DATABASE }}
+        DB_USERNAME=${{ secrets.PROD_DB_USERNAME }}
+        DB_PASSWORD=${{ secrets.PROD_DB_PASSWORD }}
+        BROADCAST_DRIVER=log
+        CACHE_DRIVER=file
+        FILESYSTEM_DISK=local
+        QUEUE_CONNECTION=sync
+        SESSION_DRIVER=file
+        SESSION_LIFETIME=120
+        MEMCACHED_HOST=127.0.0.1
+        REDIS_HOST=127.0.0.1
+        REDIS_PASSWORD=null
+        REDIS_PORT=6379
+        MAIL_MAILER=smtp
+        MAIL_HOST=mailpit
+        MAIL_PORT=1025
+        MAIL_USERNAME=null
+        MAIL_PASSWORD=null
+        MAIL_ENCRYPTION=null
+        MAIL_FROM_ADDRESS="noreply@example.com"
         MAIL_FROM_NAME="${APP_NAME}"
         VITE_APP_NAME="${APP_NAME}"
         EOF
@@ -149,15 +405,14 @@ jobs:
         php artisan view:cache
         php artisan optimize
 
-    # SSH Deployment (for VPS/Dedicated servers)
-    - name: Deploy via SSH
+    - name: Deploy to Production
       uses: appleboy/ssh-action@v1.0.3
       with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
+        host: ${{ secrets.PROD_SSH_HOST }}
+        username: ${{ secrets.PROD_SSH_USER }}
+        key: ${{ secrets.PROD_SSH_PRIVATE_KEY }}
         script: |
-          cd ${{ secrets.DEPLOY_PATH }}
+          cd ${{ secrets.PROD_DEPLOY_PATH }}
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -170,17 +425,17 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "SSH deployment completed successfully!"
+          echo "Production deployment completed successfully!"
 
-    # FTP Deployment (for shared hosting)
-    - name: Deploy via FTP
+    # FTP Deployment (for shared hosting) - Production only
+    - name: Deploy to Production via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
-        server: ${{ secrets.FTP_SERVER }}
-        username: ${{ secrets.FTP_USERNAME }}
-        password: ${{ secrets.FTP_PASSWORD }}
+        server: ${{ secrets.PROD_FTP_SERVER }}
+        username: ${{ secrets.PROD_FTP_USERNAME }}
+        password: ${{ secrets.PROD_FTP_PASSWORD }}
         local-dir: ./
-        server-dir: ${{ secrets.FTP_SERVER_DIR }}
+        server-dir: ${{ secrets.PROD_FTP_SERVER_DIR }}
         exclude: |
           **/.git*
           **/.git*/
