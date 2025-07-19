@@ -431,29 +431,7 @@ jobs:
           php artisan storage:link
           echo "Production deployment completed successfully!"
 
-    - name: Deploy to Production via FTP
-      if: secrets.PROD_FTP_SERVER != '' && secrets.PROD_FTP_USERNAME != '' && secrets.PROD_FTP_PASSWORD != '' && secrets.PROD_FTP_SERVER_DIR != ''
-      uses: SamKirkland/FTP-Deploy-Action@v4.3.4
-      with:
-        server: ${{ secrets.PROD_FTP_SERVER }}
-        username: ${{ secrets.PROD_FTP_USERNAME }}
-        password: ${{ secrets.PROD_FTP_PASSWORD }}
-        local-dir: ./
-        server-dir: ${{ secrets.PROD_FTP_SERVER_DIR }}
-        exclude: |
-          **/.git*
-          **/.git*/
-          **/node_modules/**
-          **/tests/**
-          **/.github/**
-          **/deploy.sh
-          **/deploy-ovh.sh
-          **/.env.example
-          **/README.md
-          **/README_STAP5.md
-          **/DEPLOYMENT_OVH.md
-          **/OVH_DEPLOYMENT_SUMMARY.md
-          **/vendor/**
-        dangerous-clean-slate: true
+    # FTP Deployment removed - using SSH deployment only
+    # FTP deployment can be added later when FTP secrets are configured
 
  
