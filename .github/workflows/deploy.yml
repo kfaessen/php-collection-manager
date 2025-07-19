@@ -150,7 +150,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting Development Deployment..."
+          echo "Starting Development Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/development
           git pull origin feature/extending_main_functionality
           composer install --no-dev --optimize-autoloader
@@ -164,16 +164,13 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "✅ Development deployment completed successfully!"
-          echo "🌐 Environment: Development"
-          echo "🔍 Debug: Enabled"
-          echo "📧 Email: dev@example.com"
+          echo "Development deployment completed successfully!"
 
   deploy-test:
     needs: test
     runs-on: ubuntu-latest
     environment: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message != 'ci: skip test deployment'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -239,7 +236,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting Test Deployment..."
+          echo "Starting Test Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/test
           git pull origin main
           composer install --no-dev --optimize-autoloader
@@ -253,16 +250,13 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "✅ Test deployment completed successfully!"
-          echo "🌐 Environment: Test"
-          echo "🔍 Debug: Disabled"
-          echo "📧 Email: test@example.com"
+          echo "Test deployment completed successfully!"
 
   deploy-acceptance:
     needs: test
     runs-on: ubuntu-latest
     environment: acceptance
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message != 'ci: skip acceptance deployment'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -328,7 +322,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting Acceptance Deployment..."
+          echo "Starting Acceptance Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/acceptance
           git pull origin main
           composer install --no-dev --optimize-autoloader
@@ -342,16 +336,13 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "✅ Acceptance deployment completed successfully!"
-          echo "🌐 Environment: Acceptance"
-          echo "🔍 Debug: Disabled"
-          echo "📧 Email: acc@example.com"
+          echo "Acceptance deployment completed successfully!"
 
   deploy-production:
     needs: test
     runs-on: ubuntu-latest
     environment: production
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.event.head_commit.message != 'ci: skip production deployment'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     
     steps:
     - uses: actions/checkout@v4
@@ -424,7 +415,7 @@ jobs:
         username: ${{ secrets.SSH_USER }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
-          echo "🚀 Starting Production Deployment..."
+          echo "Starting Production Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/production
           git pull origin main
           composer install --no-dev --optimize-autoloader
@@ -438,12 +429,8 @@ jobs:
           chmod -R 775 storage/framework/sessions
           chmod -R 775 storage/framework/views
           php artisan storage:link
-          echo "✅ Production deployment completed successfully!"
-          echo "🌐 Environment: Production"
-          echo "🔍 Debug: Disabled"
-          echo "📧 Email: noreply@example.com"
+          echo "Production deployment completed successfully!"
 
-    # FTP Deployment (for shared hosting) - Production only
     - name: Deploy to Production via FTP
       uses: SamKirkland/FTP-Deploy-Action@v4.3.4
       with:
