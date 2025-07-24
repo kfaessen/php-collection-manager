@@ -111,6 +111,8 @@ jobs:
         script: |
           echo "Starting Development Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-dev.faessen.com
+          git reset --hard HEAD
+          git clean -fd
           git pull origin feature/extending_main_functionality
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -156,6 +158,8 @@ jobs:
         script: |
           echo "Starting Test Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-tst.faessen.com
+          git reset --hard HEAD
+          git clean -fd
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -201,6 +205,8 @@ jobs:
         script: |
           echo "Starting Acceptance Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-acc.faessen.com
+          git reset --hard HEAD
+          git clean -fd
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             git pull origin main
           else
@@ -252,6 +258,8 @@ jobs:
         script: |
           echo "Starting Production Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection.faessen.com
+          git reset --hard HEAD
+          git clean -fd
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
