@@ -50,7 +50,8 @@ echo "\n3. Testing application...\n";
 try {
     // Test if the application can now start without the MissingAppKeyException
     $app = require_once 'bootstrap/app.php';
-    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
+    $kernel->bootstrap();
     
     // Try to access a simple Laravel service
     $config = $app->make('config');
