@@ -111,7 +111,34 @@ jobs:
         script: |
           echo "Starting Development Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-dev.faessen.com
-          git pull origin feature/extending_main_functionality
+          
+          # Backup important local files
+          if [ -f .env ]; then
+            cp .env .env.backup
+          fi
+          if [ -d storage/app/public ]; then
+            cp -r storage/app/public storage_app_public_backup
+          fi
+          
+          # Stash any local changes to tracked files
+          git stash push -m "Auto-stash before deployment $(date)"
+          
+          # Fetch latest changes
+          git fetch origin feature/extending_main_functionality
+          
+          # Reset to remote branch (safe for tracked files only)
+          git reset --hard origin/feature/extending_main_functionality
+          
+          # Restore important local files
+          if [ -f .env.backup ]; then
+            cp .env.backup .env
+            rm .env.backup
+          fi
+          if [ -d storage_app_public_backup ]; then
+            rm -rf storage/app/public
+            mv storage_app_public_backup storage/app/public
+          fi
+          
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
@@ -156,7 +183,34 @@ jobs:
         script: |
           echo "Starting Test Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-tst.faessen.com
-          git pull origin main
+          
+          # Backup important local files
+          if [ -f .env ]; then
+            cp .env .env.backup
+          fi
+          if [ -d storage/app/public ]; then
+            cp -r storage/app/public storage_app_public_backup
+          fi
+          
+          # Stash any local changes to tracked files
+          git stash push -m "Auto-stash before deployment $(date)"
+          
+          # Fetch latest changes
+          git fetch origin main
+          
+          # Reset to remote branch (safe for tracked files only)
+          git reset --hard origin/main
+          
+          # Restore important local files
+          if [ -f .env.backup ]; then
+            cp .env.backup .env
+            rm .env.backup
+          fi
+          if [ -d storage_app_public_backup ]; then
+            rm -rf storage/app/public
+            mv storage_app_public_backup storage/app/public
+          fi
+          
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
@@ -201,11 +255,37 @@ jobs:
         script: |
           echo "Starting Acceptance Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection-acc.faessen.com
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            git pull origin main
-          else
-            git pull origin feature/extending_main_functionality
+          
+          # Backup important local files
+          if [ -f .env ]; then
+            cp .env .env.backup
           fi
+          if [ -d storage/app/public ]; then
+            cp -r storage/app/public storage_app_public_backup
+          fi
+          
+          # Stash any local changes to tracked files
+          git stash push -m "Auto-stash before deployment $(date)"
+          
+          # Fetch latest changes based on branch
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            git fetch origin main
+            git reset --hard origin/main
+          else
+            git fetch origin feature/extending_main_functionality
+            git reset --hard origin/feature/extending_main_functionality
+          fi
+          
+          # Restore important local files
+          if [ -f .env.backup ]; then
+            cp .env.backup .env
+            rm .env.backup
+          fi
+          if [ -d storage_app_public_backup ]; then
+            rm -rf storage/app/public
+            mv storage_app_public_backup storage/app/public
+          fi
+          
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
@@ -241,8 +321,6 @@ jobs:
     - name: Directory permissions
       run: chmod -R 777 storage bootstrap/cache
 
-
-
     - name: Deploy to Production
       uses: appleboy/ssh-action@v1.0.3
       with:
@@ -252,7 +330,34 @@ jobs:
         script: |
           echo "Starting Production Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/collection.faessen.com
-          git pull origin main
+          
+          # Backup important local files
+          if [ -f .env ]; then
+            cp .env .env.backup
+          fi
+          if [ -d storage/app/public ]; then
+            cp -r storage/app/public storage_app_public_backup
+          fi
+          
+          # Stash any local changes to tracked files
+          git stash push -m "Auto-stash before deployment $(date)"
+          
+          # Fetch latest changes
+          git fetch origin main
+          
+          # Reset to remote branch (safe for tracked files only)
+          git reset --hard origin/main
+          
+          # Restore important local files
+          if [ -f .env.backup ]; then
+            cp .env.backup .env
+            rm .env.backup
+          fi
+          if [ -d storage_app_public_backup ]; then
+            rm -rf storage/app/public
+            mv storage_app_public_backup storage/app/public
+          fi
+          
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
