@@ -110,7 +110,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Development Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/development
+          cd ${{ secrets.DEPLOY_PATH }}/collection-dev.faessen.com
           git pull origin feature/extending_main_functionality
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -155,7 +155,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Test Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/test
+          cd ${{ secrets.DEPLOY_PATH }}/collection-tst.faessen.com
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
@@ -200,7 +200,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Acceptance Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/acceptance
+          cd ${{ secrets.DEPLOY_PATH }}/collection-acc.faessen.com
           if [ "${{ github.ref }}" = "refs/heads/main" ]; then
             git pull origin main
           else
@@ -251,7 +251,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Production Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/production
+          cd ${{ secrets.DEPLOY_PATH }}/collection.faessen.com
           git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
