@@ -201,7 +201,11 @@ jobs:
         script: |
           echo "Starting Acceptance Deployment..."
           cd ${{ secrets.DEPLOY_PATH }}/acceptance
-          git pull origin feature/extending_main_functionality
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            git pull origin main
+          else
+            git pull origin feature/extending_main_functionality
+          fi
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
