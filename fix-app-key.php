@@ -121,6 +121,13 @@ if (in_array($appKeyStatus['status'], ['valid_base64', 'valid_plain'])) {
 echo "\n4. Testing application...\n";
 
 try {
+    // Ensure Laravel is properly bootstrapped before testing env() function
+    if (!function_exists('env')) {
+        // Re-bootstrap Laravel if env() function is not available
+        echo "Re-bootstrapping Laravel for environment access...\n";
+        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    }
+    
     // Simple test: try to access environment variables
     $appKey = env('APP_KEY');
     if (!empty($appKey)) {
