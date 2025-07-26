@@ -42,6 +42,7 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach ($permissions as $name => $description) {
             Permission::create([
                 'name' => $name,
+                'guard_name' => 'web',
                 'display_name' => $description,
                 'description' => $description,
             ]);
@@ -57,6 +58,7 @@ class RolesAndPermissionsSeeder extends Seeder
         foreach ($roles as $name => $display_name) {
             Role::create([
                 'name' => $name,
+                'guard_name' => 'web',
                 'display_name' => $display_name,
             ]);
         }
