@@ -57,30 +57,27 @@ function checkAppKey($envContent) {
     return ['status' => 'missing', 'message' => 'APP_KEY is not defined'];
 }
 
-// Initialize appKeyStatus variable
-$appKeyStatus = null;
-
 // Check if APP_KEY is set in .env
 $envFile = '.env';
-if (file_exists($envFile)) {
-    $envContent = file_get_contents($envFile);
-    $appKeyStatus = checkAppKey($envContent);
-    
-    switch ($appKeyStatus['status']) {
-        case 'valid_base64':
-        case 'valid_plain':
-            echo "✓ " . $appKeyStatus['message'] . "\n";
-            break;
-        case 'empty':
-        case 'invalid_base64':
-        case 'invalid':
-        case 'missing':
-            echo "⚠️  " . $appKeyStatus['message'] . "\n";
-            break;
-    }
-} else {
+if (!file_exists($envFile)) {
     echo "✗ .env file not found\n";
     exit(1);
+}
+
+$envContent = file_get_contents($envFile);
+$appKeyStatus = checkAppKey($envContent);
+
+switch ($appKeyStatus['status']) {
+    case 'valid_base64':
+    case 'valid_plain':
+        echo "✓ " . $appKeyStatus['message'] . "\n";
+        break;
+    case 'empty':
+    case 'invalid_base64':
+    case 'invalid':
+    case 'missing':
+        echo "⚠️  " . $appKeyStatus['message'] . "\n";
+        break;
 }
 
 // Bootstrap Laravel application for environment variable access
@@ -97,6 +94,15 @@ try {
 if (in_array($appKeyStatus['status'], ['valid_base64', 'valid_plain'])) {
     echo "\n3. APP_KEY is already valid, skipping key generation...\n";
     echo "✓ No action needed\n";
+    
+    // Ensure environment is reloaded even when skipping key generation
+    // This is necessary for the testing phase to work correctly
+    try {
+        \Illuminate\Support\Facades\Artisan::call('config:clear');
+        echo "✓ Configuration cache cleared to ensure environment variables are fresh\n";
+    } catch (Exception $e) {
+        echo "⚠️  Warning: Could not clear configuration cache: " . $e->getMessage() . "\n";
+    }
 } else {
     echo "\n3. Generating new APP_KEY...\n";
 
