@@ -23,7 +23,7 @@ function checkAppKey($envContent) {
         }
         
         // Check if this line defines APP_KEY
-        if (preg_match('/^APP_KEY\s*=\s*(.+)$/', $line, $matches)) {
+        if (preg_match('/^APP_KEY\s*=\s*(.*)$/', $line, $matches)) {
             $value = trim($matches[1]);
             
             // Remove quotes if present

@@ -246,6 +246,11 @@
         
         <div id="alerts"></div>
         
+        <div class="alert alert-info">
+            <strong>💡 Informatie:</strong> De setup wizard zal automatisch alle benodigde database tabellen aanmaken als ze nog niet bestaan. 
+            Dit omvat gebruikers, collecties, permissies en alle andere benodigde tabellen.
+        </div>
+        
         <form id="databaseForm">
             <div class="form-row">
                 <div class="form-group">
@@ -287,6 +292,7 @@
         
         <div style="text-align: center; margin-top: 2rem;">
             <a href="{{ route('setup.welcome') }}" class="btn btn-secondary">Terug</a>
+            <a href="/server_diagnostics.php" class="btn btn-secondary" target="_blank">Server Diagnostiek</a>
         </div>
     </div>
     
@@ -349,6 +355,9 @@
             showLoading();
             document.getElementById('saveBtn').disabled = true;
             
+            // Update loading message
+            document.querySelector('#loading p').textContent = 'Database configureren en tabellen aanmaken...';
+            
             try {
                 const response = await fetch('{{ route("setup.save-database") }}', {
                     method: 'POST',
@@ -363,15 +372,31 @@
                 
                 if (data.success) {
                     showAlert(data.message, 'success');
+                    
+                    // Show migration details if available
+                    if (data.migration_output) {
+                        console.log('Migration Output:', data.migration_output);
+                    }
+                    if (data.seeder_output) {
+                        console.log('Seeder Output:', data.seeder_output);
+                    }
+                    
                     setTimeout(() => {
                         window.location.href = data.redirect;
                     }, 2000);
                 } else {
                     showAlert(data.message, 'danger');
+                    
+                    // Show debug info if available
+                    if (data.debug_info) {
+                        console.error('Debug Info:', data.debug_info);
+                    }
+                    
                     document.getElementById('saveBtn').disabled = false;
                 }
             } catch (error) {
-                showAlert('Er is een fout opgetreden bij het configureren van de database.', 'danger');
+                showAlert('Er is een fout opgetreden bij het configureren van de database. Controleer de server logs voor meer details.', 'danger');
+                console.error('Setup Error:', error);
                 document.getElementById('saveBtn').disabled = false;
             } finally {
                 hideLoading();
