@@ -57,6 +57,9 @@ function checkAppKey($envContent) {
     return ['status' => 'missing', 'message' => 'APP_KEY is not defined'];
 }
 
+// Initialize appKeyStatus variable
+$appKeyStatus = null;
+
 // Check if APP_KEY is set in .env
 $envFile = '.env';
 if (file_exists($envFile)) {
@@ -80,16 +83,24 @@ if (file_exists($envFile)) {
     exit(1);
 }
 
+// Bootstrap Laravel application for environment variable access
+echo "\n2. Bootstrapping Laravel application...\n";
+try {
+    $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
+    echo "✓ Laravel application bootstrapped successfully\n";
+} catch (Exception $e) {
+    echo "⚠️  Bootstrap warning: " . $e->getMessage() . "\n";
+    echo "Continuing anyway...\n";
+}
+
 // Only generate new key if current one is invalid
 if (in_array($appKeyStatus['status'], ['valid_base64', 'valid_plain'])) {
-    echo "\n2. APP_KEY is already valid, skipping key generation...\n";
+    echo "\n3. APP_KEY is already valid, skipping key generation...\n";
     echo "✓ No action needed\n";
 } else {
-    echo "\n2. Generating new APP_KEY...\n";
+    echo "\n3. Generating new APP_KEY...\n";
 
     try {
-        $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();
-        
         // Generate application key
         $exitCode = \Illuminate\Support\Facades\Artisan::call('key:generate', ['--force' => true]);
         
@@ -107,7 +118,7 @@ if (in_array($appKeyStatus['status'], ['valid_base64', 'valid_plain'])) {
     }
 }
 
-echo "\n3. Testing application...\n";
+echo "\n4. Testing application...\n";
 
 try {
     // Simple test: try to access environment variables
@@ -133,7 +144,7 @@ try {
     exit(1);
 }
 
-echo "\n4. Clearing caches...\n";
+echo "\n5. Clearing caches...\n";
 
 try {
     \Illuminate\Support\Facades\Artisan::call('config:clear');
