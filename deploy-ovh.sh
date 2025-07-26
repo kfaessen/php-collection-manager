@@ -132,11 +132,11 @@ test_mysql_connection() {
     
     # Try with password if provided
     if [ -n "$password" ]; then
-        $PHP_BIN -h "$host" -u "$user" -p"$password" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
+        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
     fi
     
     # Try without password
-    $PHP_BIN -h "$host" -u "$user" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
+    mysql -h "$host" -u "$user" $extra_args -e "SELECT 1;" 2>/dev/null && return 0
     
     return 1
 }
@@ -151,11 +151,11 @@ create_database() {
     
     # Try with password if provided
     if [ -n "$password" ]; then
-        $PHP_BIN -h "$host" -u "$user" -p"$password" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
+        mysql -h "$host" -u "$user" -p"$password" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
     fi
     
     # Try without password
-    $PHP_BIN -h "$host" -u "$user" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
+    mysql -h "$host" -u "$user" $extra_args -e "CREATE DATABASE IF NOT EXISTS $database;" 2>/dev/null && return 0
     
     return 1
 }
