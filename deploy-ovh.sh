@@ -37,23 +37,52 @@ if [ ! -f "artisan" ]; then
     exit 1
 fi
 
+# === BEGIN TOEVOEGING: Detectie juiste PHP- en Composer-binary ===
+
+# Detecteer juiste PHP-binary (php, php8.2, php8.1, ...)
+PHP_BIN="php"
+for bin in php php8.2 php8.1 php8.0; do
+    if command -v $bin &> /dev/null; then
+        PHP_BIN=$bin
+        break
+    fi
+done
+print_status "Gevonden PHP-binary: $PHP_BIN"
+
+# Detecteer juiste Composer-binary
+COMPOSER_BIN="composer"
+if ! command -v composer &> /dev/null; then
+    if [ -f "composer.phar" ]; then
+        COMPOSER_BIN="$PHP_BIN composer.phar"
+    else
+        print_error "Composer niet gevonden. Installeer Composer of plaats composer.phar in de projectmap."
+        exit 1
+    fi
+fi
+print_status "Gevonden Composer-binary: $COMPOSER_BIN"
+
+# === Vervang alle 'php' en 'composer' commando's door variabelen ===
+# Bijvoorbeeld:
+# php artisan ...  =>  $PHP_BIN artisan ...
+# composer install =>  $COMPOSER_BIN install
+
 print_status "Checking PHP version..."
-php -v
+$PHP_BIN -v
 
 print_status "Checking Composer dependencies..."
 if [ ! -d "vendor" ]; then
     print_warning "Vendor directory not found. Installing dependencies..."
-    composer install --no-dev --optimize-autoloader --no-interaction
+    $COMPOSER_BIN install --no-dev --optimize-autoloader --no-interaction
 else
     print_status "Updating Composer dependencies..."
-    composer install --no-dev --optimize-autoloader --no-interaction
+    $COMPOSER_BIN install --no-dev --optimize-autoloader --no-interaction
 fi
 
 print_status "Clearing caches..."
-php artisan config:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
-php artisan cache:clear || true
+$PHP_BIN artisan config:clear || true
+$PHP_BIN artisan route:clear || true
+$PHP_BIN artisan view:clear || true
+$PHP_BIN artisan cache:clear || true
 
 print_status "Setting up environment..."
 if [ ! -f ".env" ]; then
@@ -62,16 +91,34 @@ if [ ! -f ".env" ]; then
     print_warning "Please configure your .env file with the correct database settings."
 fi
 
+# === BEGIN TOEVOEGING: .env validatie ===
+
+REQUIRED_ENV_VARS=(DB_HOST DB_USERNAME DB_PASSWORD DB_DATABASE APP_KEY)
+MISSING_ENV_VARS=()
+for var in "${REQUIRED_ENV_VARS[@]}"; do
+    if ! grep -q "^$var=" .env; then
+        MISSING_ENV_VARS+=("$var")
+    fi
+done
+if [ ${#MISSING_ENV_VARS[@]} -gt 0 ]; then
+    print_error ".env mist de volgende essentiële variabelen: ${MISSING_ENV_VARS[*]}"
+    print_warning "Vul deze variabelen in voordat je verder gaat."
+    exit 1
+fi
+
+# === AANPASSING: Databasecreatie foutafhandeling ===
+# (vervang bestaande foutmelding na mislukte databasecreatie)
+
 # Generate application key if not set
 if ! grep -q "APP_KEY=base64:" .env; then
     print_status "Generating application key..."
-    php artisan key:generate --force
+    $PHP_BIN artisan key:generate --force
 fi
 
 print_status "Caching configuration..."
-php artisan config:cache
-php artisan route:cache
-php artisan view:cache
+$PHP_BIN artisan config:cache
+$PHP_BIN artisan route:cache
+$PHP_BIN artisan view:cache
 
 # Enhanced Database Setup with Multiple Connection Methods
 print_status "Setting up database..."
@@ -209,23 +256,15 @@ print_status "Database config: Connection=$DB_CONNECTION, Host=$DB_HOST, User=$D
 
     # If still no connection, provide guidance
     if [ "$DB_CONNECTED" = false ]; then
-        print_error "Could not connect to MySQL/MariaDB database!"
-        print_warning "Please check:"
-        print_warning "1. MySQL/MariaDB service is running: systemctl status mysql"
-        print_warning "2. Database credentials in .env file are correct"
-        print_warning "3. Database host is accessible: $DB_HOST"
-        print_warning "4. User has proper permissions: $DB_USERNAME"
-        print_warning ""
-        print_warning "For OVH shared hosting, use the database credentials from your OVH control panel"
-        print_warning "For OVH VPS, you may need to install MySQL: sudo apt install mysql-server"
-        print_warning ""
-        print_warning "Alternative: Use the database admin interface to create the database manually"
-        print_warning ""
-        print_status "Continuing with Laravel migrations (they may create the database automatically)..."
+        print_error "Kon geen verbinding maken met de MySQL/MariaDB database!"
+        print_warning "Controleer je databasegegevens in het OVH control panel."
+        print_warning "Op OVH shared hosting kun je de database meestal alleen via het control panel aanmaken."
+        print_warning "Ga naar https://www.ovh.nl/manager/ en maak de database handmatig aan indien nodig."
+        print_status "Ga verder met de deployment, maar migraties kunnen mislukken."
     fi
 
 print_status "Running database migrations..."
-if php artisan migrate --force; then
+if $PHP_BIN artisan migrate --force; then
     print_success "Database migrations completed successfully"
 else
     print_error "Database migrations failed"
@@ -234,25 +273,25 @@ else
     print_warning "2. Missing database permissions"
     print_warning "3. Database server not running"
     print_warning ""
-    print_warning "Please fix the database issues and run: php artisan migrate --force"
+    print_warning "Please fix the database issues and run: $PHP_BIN artisan migrate --force"
     print_warning "Or use the database admin interface to manage the database"
 fi
 
 print_status "Running database seeders..."
-if php artisan db:seed --force; then
+if $PHP_BIN artisan db:seed --force; then
     print_success "Database seeding completed successfully"
 else
     print_warning "Database seeding failed - this is optional for deployment"
 fi
 
 print_status "Publishing Spatie Permission assets..."
-php artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider" --force || true
+$PHP_BIN artisan vendor:publish --provider="Spatie\Permission\PermissionServiceProvider" --force || true
 
 print_status "Creating storage link..."
-php artisan storage:link || true
+$PHP_BIN artisan storage:link || true
 
 print_status "Optimizing application..."
-php artisan optimize
+$PHP_BIN artisan optimize
 
 print_status "Setting file permissions for OVH..."
 # Set proper permissions for Laravel directories
@@ -278,3 +317,33 @@ print_warning "4. Configure OAuth credentials in .env if using social login"
 print_warning "5. Set up VAPID keys for push notifications if needed"
 print_warning ""
 print_success "Deployment log completed successfully!" 
+
+# === BEGIN TOEVOEGING: Platformdetectie en permissietips ===
+
+if grep -qi ovh /etc/motd 2>/dev/null || grep -qi ovh /etc/issue 2>/dev/null; then
+    print_status "OVH-platform gedetecteerd."
+else
+    print_warning "Let op: OVH-platform niet automatisch gedetecteerd. Controleer handmatig of je op OVH draait."
+fi
+
+if [ -d "/home" ] && [ -d "/var/www" ]; then
+    print_status "Waarschijnlijk VPS. Gebruik 'chown -R www-data:www-data storage bootstrap/cache' indien mogelijk."
+else
+    print_status "Waarschijnlijk shared hosting. Gebruik chmod zoals hieronder, chown is meestal niet mogelijk."
+fi
+
+# === BEGIN TOEVOEGING: Eindcontrole of site bereikbaar is ===
+
+if grep -q "^APP_URL=" .env; then
+    APP_URL=$(grep "^APP_URL=" .env | cut -d '=' -f2)
+    print_status "Controleer of de site bereikbaar is op $APP_URL ..."
+    if command -v curl &> /dev/null; then
+        if curl -s --head "$APP_URL" | grep "200 OK" > /dev/null; then
+            print_success "De site is bereikbaar!"
+        else
+            print_warning "De site is niet direct bereikbaar. Controleer je webserverconfiguratie en DNS."
+        fi
+    else
+        print_warning "curl is niet geïnstalleerd, kan geen automatische check uitvoeren."
+    fi
+fi 

@@ -11,17 +11,17 @@ Deze gids is specifiek geoptimaliseerd voor OVH Linux hosting (shared hosting en
 #### GitHub Actions (Automatisch)
 1. **Configureer GitHub Secrets** in je repository:
    ```
-   OVH_FTP_SERVER=ftp.yourdomain.com
-   OVH_FTP_USERNAME=your_ftp_username
-   OVH_FTP_PASSWORD=your_ftp_password
+   OVH_FTP_SERVER=ftp.jouwdomein.com
+   OVH_FTP_USERNAME=je_ftp_gebruiker
+   OVH_FTP_PASSWORD=je_ftp_wachtwoord
    OVH_SERVER_DIR=/
-   OVH_SSH_HOST=your_ovh_server_ip (alleen voor VPS)
-   OVH_SSH_USER=your_ssh_username (alleen voor VPS)
-   OVH_SSH_PRIVATE_KEY=your_ssh_private_key (alleen voor VPS)
-   OVH_DEPLOY_PATH=/var/www/html (alleen voor VPS)
+   OVH_SSH_HOST=ip_of_hostname_van_ovh (voor VPS)
+   OVH_SSH_USER=ssh_gebruiker (voor VPS)
+   OVH_SSH_PRIVATE_KEY=private_key (voor VPS)
+   OVH_DEPLOY_PATH=/var/www/html (voor VPS)
    ```
 
-2. **Push naar main/master** → Automatische deployment
+2. **Push naar de juiste branch** (zie deploy.yml voor branch/omgeving mapping) → Automatische deployment
 
 #### OVH Deployment Script
 ```bash
@@ -31,6 +31,10 @@ chmod +x deploy-ovh.sh
 # Voer OVH deployment uit
 ./deploy-ovh.sh
 ```
+
+> **Nieuw:** Het script detecteert automatisch de juiste PHP- en Composer-binary (ook voor shared hosting met afwijkende commando's).
+> Essentiële .env-variabelen worden vóór de deployment gevalideerd. Fouten worden direct gemeld met OVH-specifieke tips.
+> Na afloop wordt optioneel gecontroleerd of de site bereikbaar is (indien curl en APP_URL beschikbaar zijn).
 
 ### Optie 2: Handmatige Deployment
 
@@ -45,35 +49,26 @@ cp .env.example .env
 ```
 
 #### Stap 2: OVH Database Configuratie
-Bewerk `.env` met je OVH database instellingen:
+Bewerk `.env` met je OVH database instellingen. Het script controleert nu of de belangrijkste variabelen zijn ingevuld:
 ```env
 APP_NAME="Collection Manager"
 APP_ENV=production
 APP_DEBUG=false
-APP_URL=https://yourdomain.com
+APP_URL=https://jouwdomein.com
 
 DB_CONNECTION=mysql
 DB_HOST=localhost
 DB_PORT=3306
-DB_DATABASE=your_ovh_database_name
-DB_USERNAME=your_ovh_database_user
-DB_PASSWORD=your_ovh_database_password
-
-# OAuth (optioneel)
-GOOGLE_CLIENT_ID=your_google_client_id
-GOOGLE_CLIENT_SECRET=your_google_client_secret
-FACEBOOK_CLIENT_ID=your_facebook_client_id
-FACEBOOK_CLIENT_SECRET=your_facebook_client_secret
-
-# Push Notifications (optioneel)
-VAPID_PUBLIC_KEY=your_vapid_public_key
-VAPID_PRIVATE_KEY=your_vapid_private_key
-VAPID_SUBJECT=mailto:admin@yourdomain.com
+DB_DATABASE=ovh_db_naam
+DB_USERNAME=ovh_db_gebruiker
+DB_PASSWORD=ovh_db_wachtwoord
 ```
 
 #### Stap 3: Dependencies Installeren
 ```bash
 # Installeer Composer dependencies
+./deploy-ovh.sh  # (aanbevolen, regelt alles automatisch)
+# of handmatig:
 composer install --no-dev --optimize-autoloader
 
 # Genereer application key
@@ -110,6 +105,8 @@ chmod -R 775 storage/framework/views
 # Maak storage symlink
 php artisan storage:link
 ```
+
+> **Tip:** Het script geeft nu automatisch permissie-advies op basis van het platform (shared/VPS) en detecteert veelvoorkomende valkuilen.
 
 ## 🔧 OVH-Specifieke Configuratie
 
@@ -281,6 +278,14 @@ composer clear-cache
 composer install --no-dev --optimize-autoloader
 ```
 
+## 🛠️ Troubleshooting & Veelvoorkomende Fouten
+
+- **PHP/Composer niet gevonden:** Het script zoekt automatisch naar de juiste binary. Controleer of PHP en Composer (of composer.phar) aanwezig zijn.
+- **.env variabelen missen:** Het script stopt en meldt welke variabelen ontbreken. Vul deze aan in je .env.
+- **Databasefout:** Op OVH shared hosting kun je de database alleen via het OVH control panel aanmaken. Het script geeft een duidelijke melding.
+- **Permissies:** Het script geeft advies over chmod/chown afhankelijk van het platform. Op shared hosting is chown meestal niet mogelijk.
+- **Site niet bereikbaar:** Het script controleert na afloop of de site bereikbaar is (indien curl en APP_URL beschikbaar zijn). Controleer je DNS en webserverconfiguratie.
+
 ## 🚀 OVH Deployment Scripts
 
 ### Automatische Deployment
@@ -349,3 +354,11 @@ De Collection Manager Laravel applicatie is nu geoptimaliseerd voor OVH hosting 
 - ✅ **OVH-specifieke documentatie**
 
 Je applicatie is nu klaar voor productie op OVH! 🚀 
+
+## 🔄 Automatische Deployment via GitHub Actions
+
+Zie `.github/workflows/deploy.yml` voor de volledige workflow. Let op:
+- **Development:** Deployt van `develop` en `feature/*` branches naar development omgeving
+- **Production:** Deployt van `main` branch naar production omgeving
+- Secrets moeten correct zijn ingesteld in GitHub.
+- Deployment gebeurt via SSH. 
