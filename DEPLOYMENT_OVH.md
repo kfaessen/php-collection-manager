@@ -358,6 +358,7 @@ Je applicatie is nu klaar voor productie op OVH! 🚀
 ## 🔄 Automatische Deployment via GitHub Actions
 
 Zie `.github/workflows/deploy.yml` voor de volledige workflow. Let op:
-- De juiste branch moet overeenkomen met de gewenste omgeving (zie mapping in deploy.yml).
+- **Development:** Deployt van `develop` en `feature/*` branches naar development omgeving
+- **Production:** Deployt van `main` branch naar production omgeving
 - Secrets moeten correct zijn ingesteld in GitHub.
-- Deployment gebeurt via SSH (FTP kan optioneel toegevoegd worden). 
+- Deployment gebeurt via SSH. 

@@ -110,35 +110,8 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Development Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/collection-dev.faessen.com
-          
-          # Backup important local files
-          if [ -f .env ]; then
-            cp .env .env.backup
-          fi
-          if [ -d storage/app/public ]; then
-            cp -r storage/app/public storage_app_public_backup
-          fi
-          
-          # Stash any local changes to tracked files
-          git stash push -m "Auto-stash before deployment $(date)"
-          
-          # Fetch latest changes
-          git fetch origin feature/extending_main_functionality
-          
-          # Reset to remote branch (safe for tracked files only)
-          git reset --hard origin/feature/extending_main_functionality
-          
-          # Restore important local files
-          if [ -f .env.backup ]; then
-            cp .env.backup .env
-            rm .env.backup
-          fi
-          if [ -d storage_app_public_backup ]; then
-            rm -rf storage/app/public
-            mv storage_app_public_backup storage/app/public
-          fi
-          
+          cd ${{ secrets.DEPLOY_PATH }}/development
+          git pull origin feature/extending_main_functionality
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
@@ -151,153 +124,6 @@ jobs:
           chmod -R 775 storage/framework/views
           php artisan storage:link
           echo "Development deployment completed successfully!"
-
-  deploy-test:
-    needs: test
-    runs-on: ubuntu-latest
-    environment: test
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
-        coverage: none
-
-    - name: Install dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-    - name: Directory permissions
-      run: chmod -R 777 storage bootstrap/cache
-
-    - name: Deploy to Test
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          echo "Starting Test Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/collection-tst.faessen.com
-          
-          # Backup important local files
-          if [ -f .env ]; then
-            cp .env .env.backup
-          fi
-          if [ -d storage/app/public ]; then
-            cp -r storage/app/public storage_app_public_backup
-          fi
-          
-          # Stash any local changes to tracked files
-          git stash push -m "Auto-stash before deployment $(date)"
-          
-          # Fetch latest changes
-          git fetch origin main
-          
-          # Reset to remote branch (safe for tracked files only)
-          git reset --hard origin/main
-          
-          # Restore important local files
-          if [ -f .env.backup ]; then
-            cp .env.backup .env
-            rm .env.backup
-          fi
-          if [ -d storage_app_public_backup ]; then
-            rm -rf storage/app/public
-            mv storage_app_public_backup storage/app/public
-          fi
-          
-          composer install --no-dev --optimize-autoloader
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-          php artisan optimize
-          chmod -R 755 storage bootstrap/cache
-          chmod -R 775 storage/logs
-          chmod -R 775 storage/framework/cache
-          chmod -R 775 storage/framework/sessions
-          chmod -R 775 storage/framework/views
-          php artisan storage:link
-          echo "Test deployment completed successfully!"
-
-  deploy-acceptance:
-    needs: test
-    runs-on: ubuntu-latest
-    environment: acceptance
-    if: (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/feature/extending_main_functionality') && github.event_name == 'push'
-    
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Setup PHP
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: '8.2'
-        extensions: mbstring, xml, ctype, iconv, intl, pdo_mysql, openssl, tokenizer, json, bcmath, fileinfo
-        coverage: none
-
-    - name: Install dependencies
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-    - name: Directory permissions
-      run: chmod -R 777 storage bootstrap/cache
-
-    - name: Deploy to Acceptance
-      uses: appleboy/ssh-action@v1.0.3
-      with:
-        host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USER }}
-        key: ${{ secrets.SSH_PRIVATE_KEY }}
-        script: |
-          echo "Starting Acceptance Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/collection-acc.faessen.com
-          
-          # Backup important local files
-          if [ -f .env ]; then
-            cp .env .env.backup
-          fi
-          if [ -d storage/app/public ]; then
-            cp -r storage/app/public storage_app_public_backup
-          fi
-          
-          # Stash any local changes to tracked files
-          git stash push -m "Auto-stash before deployment $(date)"
-          
-          # Fetch latest changes based on branch
-          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
-            git fetch origin main
-            git reset --hard origin/main
-          else
-            git fetch origin feature/extending_main_functionality
-            git reset --hard origin/feature/extending_main_functionality
-          fi
-          
-          # Restore important local files
-          if [ -f .env.backup ]; then
-            cp .env.backup .env
-            rm .env.backup
-          fi
-          if [ -d storage_app_public_backup ]; then
-            rm -rf storage/app/public
-            mv storage_app_public_backup storage/app/public
-          fi
-          
-          composer install --no-dev --optimize-autoloader
-          php artisan config:cache
-          php artisan route:cache
-          php artisan view:cache
-          php artisan optimize
-          chmod -R 755 storage bootstrap/cache
-          chmod -R 775 storage/logs
-          chmod -R 775 storage/framework/cache
-          chmod -R 775 storage/framework/sessions
-          chmod -R 775 storage/framework/views
-          php artisan storage:link
-          echo "Acceptance deployment completed successfully!"
 
   deploy-production:
     needs: test
@@ -329,35 +155,8 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           echo "Starting Production Deployment..."
-          cd ${{ secrets.DEPLOY_PATH }}/collection.faessen.com
-          
-          # Backup important local files
-          if [ -f .env ]; then
-            cp .env .env.backup
-          fi
-          if [ -d storage/app/public ]; then
-            cp -r storage/app/public storage_app_public_backup
-          fi
-          
-          # Stash any local changes to tracked files
-          git stash push -m "Auto-stash before deployment $(date)"
-          
-          # Fetch latest changes
-          git fetch origin main
-          
-          # Reset to remote branch (safe for tracked files only)
-          git reset --hard origin/main
-          
-          # Restore important local files
-          if [ -f .env.backup ]; then
-            cp .env.backup .env
-            rm .env.backup
-          fi
-          if [ -d storage_app_public_backup ]; then
-            rm -rf storage/app/public
-            mv storage_app_public_backup storage/app/public
-          fi
-          
+          cd ${{ secrets.DEPLOY_PATH }}/production
+          git pull origin main
           composer install --no-dev --optimize-autoloader
           php artisan config:cache
           php artisan route:cache
@@ -370,8 +169,5 @@ jobs:
           chmod -R 775 storage/framework/views
           php artisan storage:link
           echo "Production deployment completed successfully!"
-
-    # FTP Deployment removed - using SSH deployment only
-    # FTP deployment can be added later when FTP secrets are configured
 
  
